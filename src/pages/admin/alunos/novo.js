@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { doc, setDoc, Timestamp, collection, addDoc } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -9,6 +9,7 @@ import Layout from '../../../components/layout/Layout';
 import Link from 'next/link';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { initializeApp } from 'firebase/app';
 
 export default function NovoAluno() {
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
@@ -78,8 +79,22 @@ export default function NovoAluno() {
     try {
       setLoading(true);
       
-      // Cadastrar o usuário no Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // Criar uma instância temporária para não afetar o usuário logado atual
+      const firebaseConfig = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+      };
+      
+      // Inicializar uma segunda instância do Firebase (temporária)
+      const secondaryApp = initializeApp(firebaseConfig, 'secondary');
+      const secondaryAuth = getAuth(secondaryApp);
+      
+      // Cadastrar o usuário usando a instância temporária
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password);
       const user = userCredential.user;
       
       // Criar documento do usuário no Firestore
@@ -109,12 +124,16 @@ export default function NovoAluno() {
         updatedAt: Timestamp.now()
       });
       
+      // Fazer logout na instância secundária para limpar
+      await secondaryAuth.signOut();
+      
       toast.success('Aluno cadastrado com sucesso!');
       
-      // Aguardar um pouco antes de redirecionar
+      // Redirecionar para a página de nova avaliação com o ID do aluno
       setTimeout(() => {
-        router.push('/admin/alunos');
+        router.push(`/admin/avaliacoes/nova?alunoId=${user.uid}`);
       }, 2000);
+      
     } catch (error) {
       console.error('Erro ao cadastrar aluno:', error);
       let errorMessage = 'Falha ao cadastrar aluno. Tente novamente.';
@@ -389,7 +408,7 @@ export default function NovoAluno() {
                         errors.observacoes ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('observacoes')}
-                    ></textarea>
+                    />
                     {errors.observacoes && (
                       <p className="mt-2 text-sm text-red-600">{errors.observacoes.message}</p>
                     )}

@@ -1,4 +1,6 @@
+// src/pages/_app.js
 import '../styles/globals.css';
+import '../styles/layout.css';
 import Head from 'next/head';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ToastContainer } from 'react-toastify';

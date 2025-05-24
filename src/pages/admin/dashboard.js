@@ -16,6 +16,12 @@ export default function AdminDashboard() {
   const [avaliacoesRecentes, setAvaliacoesRecentes] = useState([]);
   const [alunosRecentes, setAlunosRecentes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Função para log de depuração
+  const logDebug = (message, data = null) => {
+    console.log(`[DEBUG] ${message}`, data);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,70 +30,106 @@ export default function AdminDashboard() {
           setLoading(true);
           
           // Contagem total de alunos
+          logDebug('Buscando total de alunos');
           const alunosQuery = query(
             collection(db, 'usuarios'),
             where('tipo', '==', 'aluno')
           );
           const alunosSnapshot = await getDocs(alunosQuery);
           const totalAlunos = alunosSnapshot.size;
+          logDebug(`Total de alunos encontrados: ${totalAlunos}`);
           
           // Últimos alunos cadastrados
-          const alunosRecentesQuery = query(
-            collection(db, 'usuarios'),
-            where('tipo', '==', 'aluno'),
-            orderBy('createdAt', 'desc'),
-            limit(5)
-          );
-          const alunosRecentesSnapshot = await getDocs(alunosRecentesQuery);
-          const alunosRecentesData = alunosRecentesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          logDebug('Buscando alunos recentes');
+          let alunosRecentesData = [];
+          
+          if (totalAlunos > 0) {
+            const alunosRecentesQuery = query(
+              collection(db, 'usuarios'),
+              where('tipo', '==', 'aluno'),
+              orderBy('createdAt', 'desc'),
+              limit(5)
+            );
+            const alunosRecentesSnapshot = await getDocs(alunosRecentesQuery);
+            alunosRecentesData = alunosRecentesSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            logDebug(`Alunos recentes encontrados: ${alunosRecentesData.length}`);
+          }
           
           // Total de avaliações
+          logDebug('Buscando total de avaliações');
           const avaliacoesQuery = query(collection(db, 'avaliacoes'));
           const avaliacoesSnapshot = await getDocs(avaliacoesQuery);
           const totalAvaliacoes = avaliacoesSnapshot.size;
+          logDebug(`Total de avaliações encontradas: ${totalAvaliacoes}`);
           
           // Avaliações do último mês
           const umMesAtras = new Date();
           umMesAtras.setMonth(umMesAtras.getMonth() - 1);
           
-          const avaliacoesRecentesCountQuery = query(
-            collection(db, 'avaliacoes'),
-            where('dataAvaliacao', '>=', Timestamp.fromDate(umMesAtras))
-          );
-          const avaliacoesRecentesCountSnapshot = await getDocs(avaliacoesRecentesCountQuery);
-          const avaliacoesRecentes = avaliacoesRecentesCountSnapshot.size;
+          let avaliacoesRecentes = 0;
+          
+          if (totalAvaliacoes > 0) {
+            logDebug('Buscando avaliações recentes');
+            const avaliacoesRecentesCountQuery = query(
+              collection(db, 'avaliacoes'),
+              where('dataAvaliacao', '>=', Timestamp.fromDate(umMesAtras))
+            );
+            const avaliacoesRecentesCountSnapshot = await getDocs(avaliacoesRecentesCountQuery);
+            avaliacoesRecentes = avaliacoesRecentesCountSnapshot.size;
+            logDebug(`Avaliações recentes encontradas: ${avaliacoesRecentes}`);
+          }
           
           // Últimas avaliações realizadas
-          const ultimasAvaliacoesQuery = query(
-            collection(db, 'avaliacoes'),
-            orderBy('dataAvaliacao', 'desc'),
-            limit(5)
-          );
-          const ultimasAvaliacoesSnapshot = await getDocs(ultimasAvaliacoesQuery);
+          let avaliacoesData = [];
           
-          // Para cada avaliação, buscar dados do aluno
-          const avaliacoesData = [];
-          for (const avaliacaoDoc of ultimasAvaliacoesSnapshot.docs) {
-            const avaliacaoData = {
-              id: avaliacaoDoc.id,
-              ...avaliacaoDoc.data()
-            };
+          if (totalAvaliacoes > 0) {
+            logDebug('Buscando últimas avaliações');
+            const ultimasAvaliacoesQuery = query(
+              collection(db, 'avaliacoes'),
+              orderBy('dataAvaliacao', 'desc'),
+              limit(5)
+            );
+            const ultimasAvaliacoesSnapshot = await getDocs(ultimasAvaliacoesQuery);
             
-            // Buscar dados do aluno
-            if (avaliacaoData.alunoId) {
-              const alunoDoc = await getDocs(
-                query(collection(db, 'usuarios'), where('uid', '==', avaliacaoData.alunoId))
-              );
+            // Para cada avaliação, buscar dados do aluno
+            for (const avaliacaoDoc of ultimasAvaliacoesSnapshot.docs) {
+              const avaliacaoData = {
+                id: avaliacaoDoc.id,
+                ...avaliacaoDoc.data()
+              };
               
-              if (!alunoDoc.empty) {
-                avaliacaoData.aluno = alunoDoc.docs[0].data();
+              // Verificar se já tem o nome do aluno nos dados
+              if (!avaliacaoData.alunoNome && avaliacaoData.alunoId) {
+                try {
+                  const alunoRef = collection(db, 'usuarios');
+                  const alunoQuery = query(alunoRef, where('uid', '==', avaliacaoData.alunoId));
+                  const alunoSnapshot = await getDocs(alunoQuery);
+                  
+                  if (!alunoSnapshot.empty) {
+                    const alunoData = alunoSnapshot.docs[0].data();
+                    avaliacaoData.alunoNome = alunoData.nome;
+                  } else {
+                    // Tentar buscar usando o id diretamente como o document id
+                    const alunoQueryById = query(collection(db, 'usuarios'));
+                    const alunoByIdSnapshot = await getDocs(alunoQueryById);
+                    
+                    const alunoEncontrado = alunoByIdSnapshot.docs.find(doc => doc.id === avaliacaoData.alunoId);
+                    
+                    if (alunoEncontrado) {
+                      avaliacaoData.alunoNome = alunoEncontrado.data().nome;
+                    }
+                  }
+                } catch (error) {
+                  console.error('Erro ao buscar nome do aluno:', error);
+                }
               }
+              
+              avaliacoesData.push(avaliacaoData);
             }
-            
-            avaliacoesData.push(avaliacaoData);
+            logDebug(`Últimas avaliações encontradas: ${avaliacoesData.length}`);
           }
           
           setStats({
@@ -100,6 +142,7 @@ export default function AdminDashboard() {
           setAlunosRecentes(alunosRecentesData);
         } catch (error) {
           console.error('Erro ao buscar dados:', error);
+          setError(error.message);
         } finally {
           setLoading(false);
         }
@@ -113,6 +156,23 @@ export default function AdminDashboard() {
     <Layout>
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard Admin</h1>
+        
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  Erro ao carregar dados: {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -229,16 +289,16 @@ export default function AdminDashboard() {
                         {avaliacoesRecentes.map((avaliacao) => (
                           <tr key={avaliacao.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatDate(avaliacao.dataAvaliacao?.toDate())}
+                              {avaliacao.dataAvaliacao?.toDate ? formatDate(avaliacao.dataAvaliacao.toDate()) : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {avaliacao.aluno?.nome || avaliacao.alunoNome || 'N/A'}
+                              {avaliacao.alunoNome || 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {avaliacao.peso}
+                              {avaliacao.peso || '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {avaliacao.percentualGordura}%
+                              {avaliacao.percentualGordura ? `${avaliacao.percentualGordura}%` : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <Link 
@@ -254,7 +314,15 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-gray-500 italic text-center py-4">Nenhuma avaliação encontrada</p>
+                  <div className="text-center py-6">
+                    <p className="text-gray-500">Nenhuma avaliação encontrada</p>
+                    <Link 
+                      href="/admin/avaliacoes/nova"
+                      className="mt-2 inline-block text-blue-600 hover:text-blue-800"
+                    >
+                      Registrar primeira avaliação →
+                    </Link>
+                  </div>
                 )}
               </div>
               
@@ -278,10 +346,10 @@ export default function AdminDashboard() {
                             Nome
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            E-mail
+                            Email
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Data Cadastro
+                            Data de Cadastro
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Ações
@@ -292,20 +360,20 @@ export default function AdminDashboard() {
                         {alunosRecentes.map((aluno) => (
                           <tr key={aluno.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {aluno.nome || 'N/A'}
+                              {aluno.nome}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {aluno.email}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatDate(aluno.createdAt?.toDate())}
+                              {aluno.createdAt?.toDate ? formatDate(aluno.createdAt.toDate()) : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <Link 
                                 href={`/admin/alunos/${aluno.id}`}
                                 className="text-blue-600 hover:text-blue-900"
                               >
-                                Ver perfil
+                                Ver Perfil
                               </Link>
                             </td>
                           </tr>
@@ -314,46 +382,16 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-gray-500 italic text-center py-4">Nenhum aluno encontrado</p>
+                  <div className="text-center py-6">
+                    <p className="text-gray-500">Nenhum aluno cadastrado</p>
+                    <Link 
+                      href="/admin/alunos/novo"
+                      className="mt-2 inline-block text-blue-600 hover:text-blue-800"
+                    >
+                      Cadastrar primeiro aluno →
+                    </Link>
+                  </div>
                 )}
-              </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">Ações Rápidas</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link 
-                  href="/admin/alunos/novo"
-                  className="flex items-center justify-center p-4 border border-blue-200 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Cadastrar Novo Aluno
-                </Link>
-                
-                <Link 
-                  href="/admin/avaliacoes/nova"
-                  className="flex items-center justify-center p-4 border border-green-200 rounded-lg bg-green-50 text-green-700 hover:bg-green-100"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Registrar Nova Avaliação
-                </Link>
-                
-                <Link 
-                  href="/admin/relatorios"
-                  className="flex items-center justify-center p-4 border border-purple-200 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Gerar Relatórios
-                </Link>
               </div>
             </div>
           </>

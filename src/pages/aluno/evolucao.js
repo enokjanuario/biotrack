@@ -7,9 +7,9 @@ import { formatDate } from '../../utils/formatDate';
 import dynamic from 'next/dynamic';
 
 // Importação dinâmica dos componentes de gráfico
-const ComposicaoCorporalChart = dynamic(() => import('../../components/charts/ComposicaoCorporalChart'), { ssr: false });
-const CircunferenciasChart = dynamic(() => import('../../components/charts/CircunferenciasChart'), { ssr: false });
-const TestesChart = dynamic(() => import('../../components/charts/TestesChart'), { ssr: false });
+const ComposicaoCorporalChart = dynamic(() => import('../../components/layout/charts/ComposicaoCorporalChart'), { ssr: false });
+const CircunferenciasChart = dynamic(() => import('../../components/layout/charts/CircunferenciasChart'), { ssr: false });
+const TestesChart = dynamic(() => import('../../components/layout/charts/TestesChart'), { ssr: false });
 
 export default function EvolucaoAluno() {
   const { currentUser } = useAuth();

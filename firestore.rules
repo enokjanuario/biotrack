@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras para usuarios
+    match /usuarios/{userId} {
+      // Permitir leitura e escrita para o próprio usuário autenticado
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Permitir que admins leiam todos os usuários
+      allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
+        
+      // Permitir que admins criem novos usuários
+      allow create: if request.auth != null && 
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
+    }
+    
+    // Regras para perfis
+    match /perfis/{perfilId} {
+      // Permitir leitura e escrita para o próprio usuário
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+        
+      // Permitir que admins leiam e escrevam todos os perfis
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
+    }
+    
+    // Regras para avaliações
+    match /avaliacoes/{avaliacaoId} {
+      // Permitir leitura para o aluno dono da avaliação
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.alunoId;
+        
+      // Permitir que admins leiam e escrevam todas as avaliações
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
+    }
+    
+    // Regra para desenvolvimento - REMOVER EM PRODUÇÃO
+    // match /{document=**} {
+    //   allow read, write: if true;
+    // }
+  }
+} 

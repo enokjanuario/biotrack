@@ -1,63 +1,194 @@
+// components/layout/Sidebar.jsx - Versão corrigida
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useAuth } from '../../contexts/AuthContext';
+import Tooltip from '../ui/Tooltip';
+import { 
+  HomeIcon, 
+  DocumentTextIcon, 
+  ChartBarIcon, 
+  UserIcon,
+  XMarkIcon 
+} from '@heroicons/react/24/outline';
 
-export default function Sidebar({ isOpen, userType }) {
+export default function Sidebar({ isOpen, isCollapsed, userType, toggleSidebar }) {
   const router = useRouter();
+  const { currentUser } = useAuth();
+  const [userName, setUserName] = useState('');
+  const [userInitial, setUserInitial] = useState('');
 
-  // Links de navegação com base no tipo de usuário
+  // Efeito para buscar dados do usuário
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (currentUser?.email) {
+        // Usar o email como nome temporário se não houver um perfil
+        const emailName = currentUser.email.split('@')[0];
+        const nameCapitalized = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+        setUserName(nameCapitalized);
+        setUserInitial(nameCapitalized.charAt(0));
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  // Links de navegação com ícones modernos
   const navLinks = userType === 'admin' 
     ? [
-        { href: '/admin/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-        { href: '/admin/alunos', label: 'Alunos', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-        { href: '/admin/avaliacoes', label: 'Avaliações', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
-        { href: '/admin/relatorios', label: 'Relatórios', icon: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z' }
+        { 
+          href: '/admin/dashboard', 
+          label: 'Dashboard', 
+          icon: <HomeIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/admin/alunos', 
+          label: 'Alunos', 
+          icon: <UserIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/admin/avaliacoes', 
+          label: 'Avaliações', 
+          icon: <DocumentTextIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/admin/relatorios', 
+          label: 'Relatórios', 
+          icon: <ChartBarIcon className="w-5 h-5" /> 
+        }
       ]
     : [
-        { href: '/aluno/dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-        { href: '/aluno/avaliacoes', label: 'Minhas Avaliações', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-        { href: '/aluno/evolucao', label: 'Evolução', icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
-        { href: '/aluno/perfil', label: 'Perfil', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }
+        { 
+          href: '/aluno/dashboard', 
+          label: 'Dashboard', 
+          icon: <HomeIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/aluno/avaliacoes', 
+          label: 'Minhas Avaliações', 
+          icon: <DocumentTextIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/aluno/evolucao', 
+          label: 'Evolução', 
+          icon: <ChartBarIcon className="w-5 h-5" /> 
+        },
+        { 
+          href: '/aluno/perfil', 
+          label: 'Perfil', 
+          icon: <UserIcon className="w-5 h-5" /> 
+        }
       ];
 
-  return (
-    <aside 
-      className={`fixed inset-y-0 left-0 transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 z-30 w-64 bg-white shadow-lg transition duration-300 ease-in-out pt-16`}
-    >
-      <nav className="mt-5 px-2">
-        <div className="space-y-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                router.pathname === link.href
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`mr-3 h-5 w-5 ${
-                  router.pathname === link.href
-                    ? 'text-blue-500'
-                    : 'text-gray-500 group-hover:text-blue-500'
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={link.icon}
-                />
-              </svg>
-              {link.label}
-            </Link>
-          ))}
+  // Determinar classes CSS baseado no estado do sidebar
+  const sidebarClasses = `
+    fixed inset-y-0 left-0 transform transition-all duration-300 ease-in-out z-30 bg-white shadow-lg pt-16
+    ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
+    md:translate-x-0
+    ${isCollapsed ? 'md:w-16' : 'md:w-64'}
+    w-64
+  `.trim();
+
+      return (    <aside className={sidebarClasses}>      <div className="h-full overflow-y-auto sidebar-scroll">
+        {/* Botão fechar no mobile */}
+        <div className="md:hidden flex justify-end p-4">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Fechar menu"
+          >
+            <XMarkIcon className="h-6 w-6 text-gray-600" />
+          </button>
         </div>
-      </nav>
+
+        <div className="px-4 py-6">
+          {/* Perfil do usuário */}
+          {!isCollapsed && (
+            <div className="flex items-center mb-6 md:mb-8">
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <span className="font-semibold text-blue-600">{userInitial}</span>
+              </div>
+              <div className="ml-3 min-w-0">
+                <p className="font-medium text-gray-900 truncate">{userName || 'Usuário'}</p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {userType === 'admin' ? 'Administrador' : 'Aluno'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Versão colapsada - apenas avatar */}
+          {isCollapsed && (
+            <div className="hidden md:flex justify-center mb-6">
+              <Tooltip content={`${userName || 'Usuário'} (${userType === 'admin' ? 'Admin' : 'Aluno'})`}>
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="font-semibold text-blue-600">{userInitial}</span>
+                </div>
+              </Tooltip>
+            </div>
+          )}
+          
+          {/* Navegação */}
+          <nav className="space-y-1">
+            {navLinks.map((link) => {
+              const isActive = router.pathname === link.href;
+              
+              const linkContent = (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`
+                    group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 ease-in-out
+                    ${isActive
+                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-500'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                    }
+                    ${isCollapsed ? 'md:justify-center md:px-2' : ''}
+                  `.trim()}
+                >
+                                    <span className={`                    flex-shrink-0 transition-colors nav-icon                    ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'}                  `}>                    {link.icon}                  </span>
+                  
+                  {/* Label - oculto quando colapsado em desktop */}
+                  <span className={`
+                    ml-3 transition-opacity
+                    ${isCollapsed ? 'md:hidden' : ''}
+                  `}>
+                    {link.label}
+                  </span>
+                </Link>
+              );
+
+              // Se estiver colapsado em desktop, envolver com tooltip
+              return isCollapsed ? (
+                <div key={link.href} className="hidden md:block">
+                  <Tooltip content={link.label}>
+                    {linkContent}
+                  </Tooltip>
+                </div>
+              ) : (
+                <div key={link.href}>
+                  {linkContent}
+                </div>
+              );
+            })}
+          </nav>
+
+          {/* Informações adicionais no modo expandido */}
+          {!isCollapsed && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="px-3 py-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Sistema
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Avaliação Física v1.0
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </aside>
   );
 }
