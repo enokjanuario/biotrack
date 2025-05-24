@@ -1,57 +1,305 @@
-# Logs
+# ==============================================
+# 📁 Next.js & React
+# ==============================================
+.next/
+out/
+.swc/
+build/
+dist/
+
+# ==============================================
+# 📝 Logs & Debug
+# ==============================================
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 firebase-debug.log*
 firebase-debug.*.log*
 
-# Firebase cache
+# ==============================================
+# 🔧 Node.js & Package Managers
+# ==============================================
+node_modules/
+.npm
+.yarn-integrity
+.pnpm-debug.log*
+.npmrc
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# ==============================================
+# 🔥 Firebase
+# ==============================================
 .firebase/
+.firebaserc
+firebase.json.backup
+*firebase-debug.log*
+firestore-debug.log
 
-# Firebase config
+# DataConnect generated files
+.dataconnect
+dataconnect-generated/
 
-# Uncomment this if you'd like others to create their own Firebase project.
-# For a team working on the same Firebase project(s), it is recommended to leave
-# it commented so all members can deploy to the same project(s) in .firebaserc.
-# .firebaserc
+# ==============================================
+# 🌍 Environment Variables & Config
+# ==============================================
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+.env.test
+.env.staging
 
-# Runtime data
+# Config files with sensitive data
+config.json
+secrets.json
+*config*.local.*
+
+# ==============================================
+# 💾 Cache & Temporary Files
+# ==============================================
+.cache/
+.temp/
+.tmp/
+tmp/
+temp/
+
+# Next.js cache
+.next/cache/
+
+# Webpack cache
+.webpack/
+
+# SWC cache
+.swc/
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# ==============================================
+# 🖥️ Operating System Files
+# ==============================================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================
+# 🎨 IDEs & Editors
+# ==============================================
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ==============================================
+# 🧪 Testing & Coverage
+# ==============================================
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+test-results/
+.coverage/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ==============================================
+# 📱 Mobile & PWA
+# ==============================================
+# React Native
+.expo/
+.expo-shared/
+
+# PWA
+workbox-cli-config.js
+
+# ==============================================
+# 📊 Analytics & Monitoring
+# ==============================================
+.vercel
+.netlify/
+
+# Sentry
+.sentryclirc
+
+# ==============================================
+# 🗃️ Database & Storage
+# ==============================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ==============================================
+# 📦 Build & Deployment
+# ==============================================
+# Production builds
+/build
+/dist
+/public/build
+
+# Storybook
+storybook-static/
+
+# ==============================================
+# 🔐 Security & Certificates
+# ==============================================
+*.pem
+*.key
+*.crt
+*.cert
+*.ca-bundle
+
+# ==============================================
+# 📋 Backup & Temporary Development Files
+# ==============================================
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+*.save
+*_backup.*
+*_old.*
+
+# Development temporary files
+*.todo
+*.notes
+test.txt
+debug.*
+temp.*
+scratch.*
+playground.*
+example.*
+
+# Generated documentation
+docs/generated/
+*.md.backup
+
+# ==============================================
+# 🎯 Project Specific
+# ==============================================
+# Ignorar arquivos de configuração local do projeto
+local.config.js
+dev.config.js
+
+# Ignorar uploads de teste
+uploads/test/
+public/uploads/temp/
+
+# Ignorar dados de seed/mock para desenvolvimento
+seed-data/
+mock-data/
+
+# ==============================================
+# 📁 Runtime & Process Files
+# ==============================================
 pids
 *.pid
 *.seed
 *.pid.lock
 
-# Directory for instrumented libs generated by jscoverage/JSCover
+# Directory for instrumented libs
 lib-cov
 
-# Coverage directory used by tools like istanbul
-coverage
-
-# nyc test coverage
-.nyc_output
-
-# Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
+# Grunt intermediate storage
 .grunt
 
-# Bower dependency directory (https://bower.io/)
+# Bower dependency directory
 bower_components
 
 # node-waf configuration
 .lock-wscript
 
-# Compiled binary addons (http://nodejs.org/api/addons.html)
+# Compiled binary addons
 build/Release
-
-# Dependency directories
-node_modules/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
 
 # Optional REPL history
 .node_repl_history
@@ -62,8 +310,7 @@ node_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
-# dataconnect generated files
-.dataconnect
+# ==============================================
+# 📝 End of .gitignore
+# Última atualização: $(date)
+# ==============================================
