@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, getDocs, where, orderBy, startAfter, limit } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,39 +95,94 @@ export default function AdminAlunos() {
     }
   };
 
-  const handleSearch = async () => {
+  // Função para debounce da busca
+  const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  };
+
+  // Função otimizada para busca com debounce
+  const debouncedSearch = useCallback(
+    debounce((term) => {
+      if (term.trim()) {
+        handleSearch(term);
+      } else {
+        fetchAlunos(true);
+      }
+    }, 300),
+    []
+  );
+
+  const handleSearch = async (searchValue = searchTerm) => {
     if (!currentUser?.uid) return;
     
     try {
       setLoading(true);
       
       // Se o termo de busca estiver vazio, retorna à listagem normal
-      if (!searchTerm.trim()) {
+      if (!searchValue.trim()) {
         logDebug('Termo de busca vazio, retornando à listagem normal');
         fetchAlunos(true);
         return;
       }
       
-      logDebug(`Buscando alunos com termo: "${searchTerm}"`);
+      logDebug(`Buscando alunos com termo: "${searchValue}"`);
       
-      // Busca por nome (contém o termo)
+      // Convertendo o termo para minúsculas para busca case-insensitive
+      const searchLower = searchValue.toLowerCase();
+      
+      // Busca por nome (case-insensitive)
       const alunosNomeSnapshot = await getDocs(
         query(
           collection(db, 'usuarios'),
           where('tipo', '==', 'aluno'),
-          where('nome', '>=', searchTerm),
-          where('nome', '<=', searchTerm + '\uf8ff')
+          where('nome', '>=', searchValue),
+          where('nome', '<=', searchValue + '\uf8ff'),
+          orderBy('nome')
         )
       );
       logDebug(`Encontrados ${alunosNomeSnapshot.size} alunos pelo nome`);
       
-      // Busca por email (contém o termo)
+      // Segunda busca por nome com primeira letra maiúscula para melhor cobertura
+      const searchCapitalized = searchValue.charAt(0).toUpperCase() + searchValue.slice(1).toLowerCase();
+      const alunosNomeCapSnapshot = await getDocs(
+        query(
+          collection(db, 'usuarios'),
+          where('tipo', '==', 'aluno'),
+          where('nome', '>=', searchCapitalized),
+          where('nome', '<=', searchCapitalized + '\uf8ff'),
+          orderBy('nome')
+        )
+      );
+      logDebug(`Encontrados ${alunosNomeCapSnapshot.size} alunos pelo nome capitalizado`);
+      
+      // Terceira busca por nome em minúsculas para completar a cobertura
+      const alunosNomeLowerSnapshot = await getDocs(
+        query(
+          collection(db, 'usuarios'),
+          where('tipo', '==', 'aluno'),
+          where('nome', '>=', searchLower),
+          where('nome', '<=', searchLower + '\uf8ff'),
+          orderBy('nome')
+        )
+      );
+      logDebug(`Encontrados ${alunosNomeLowerSnapshot.size} alunos pelo nome em minúsculas`);
+      
+      // Busca por email (sempre em minúsculas)
       const alunosEmailSnapshot = await getDocs(
         query(
           collection(db, 'usuarios'),
           where('tipo', '==', 'aluno'),
-          where('email', '>=', searchTerm),
-          where('email', '<=', searchTerm + '\uf8ff')
+          where('email', '>=', searchLower),
+          where('email', '<=', searchLower + '\uf8ff'),
+          orderBy('email')
         )
       );
       logDebug(`Encontrados ${alunosEmailSnapshot.size} alunos pelo email`);
@@ -135,18 +190,50 @@ export default function AdminAlunos() {
       // Combinando resultados sem duplicatas
       const alunosMap = new Map();
       
+      // Processar resultados da busca por nome (primeira busca)
       alunosNomeSnapshot.docs.forEach(doc => {
-        alunosMap.set(doc.id, {
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
-      alunosEmailSnapshot.docs.forEach(doc => {
-        if (!alunosMap.has(doc.id)) {
+        const data = doc.data();
+        // Filtragem adicional case-insensitive no cliente
+        if (data.nome && data.nome.toLowerCase().includes(searchLower)) {
           alunosMap.set(doc.id, {
             id: doc.id,
-            ...doc.data()
+            ...data
+          });
+        }
+      });
+      
+      // Processar resultados da busca por nome capitalizado
+      alunosNomeCapSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Filtragem adicional case-insensitive no cliente
+        if (data.nome && data.nome.toLowerCase().includes(searchLower) && !alunosMap.has(doc.id)) {
+          alunosMap.set(doc.id, {
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      // Processar resultados da busca por nome em minúsculas
+      alunosNomeLowerSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Filtragem adicional case-insensitive no cliente
+        if (data.nome && data.nome.toLowerCase().includes(searchLower) && !alunosMap.has(doc.id)) {
+          alunosMap.set(doc.id, {
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      // Processar resultados da busca por email
+      alunosEmailSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Filtragem adicional case-insensitive no cliente
+        if (data.email && data.email.toLowerCase().includes(searchLower) && !alunosMap.has(doc.id)) {
+          alunosMap.set(doc.id, {
+            id: doc.id,
+            ...data
           });
         }
       });
@@ -169,11 +256,16 @@ export default function AdminAlunos() {
     }
   };
 
+  // Atualizar o useEffect para incluir busca automática
   useEffect(() => {
     if (currentUser) {
-      fetchAlunos(true);
+      if (searchTerm.trim()) {
+        debouncedSearch(searchTerm);
+      } else {
+        fetchAlunos(true);
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, searchTerm, debouncedSearch]);
 
   return (
     <Layout>
@@ -216,35 +308,28 @@ export default function AdminAlunos() {
                   <input 
                     type="text" 
                     placeholder="Buscar por nome ou e-mail..." 
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                   <div className="absolute left-3 top-2.5 text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
+                  {searchTerm && (
+                    <button
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                      onClick={() => setSearchTerm('')}
+                      title="Limpar busca"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                onClick={handleSearch}
-              >
-                Buscar
-              </button>
-              {searchTerm && (
-                <button
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  onClick={() => {
-                    setSearchTerm('');
-                    fetchAlunos(true);
-                  }}
-                >
-                  Limpar
-                </button>
-              )}
             </div>
           </div>
           
@@ -315,14 +400,30 @@ export default function AdminAlunos() {
                             <Link 
                               href={`/admin/alunos/${aluno.id}`}
                               className="text-blue-600 hover:text-blue-900"
+                              title="Ver perfil completo"
                             >
                               Ver Perfil
                             </Link>
                             <Link 
                               href={`/admin/avaliacoes/nova?alunoId=${aluno.id}`}
                               className="text-green-600 hover:text-green-900"
+                              title="Registrar nova avaliação"
                             >
                               Nova Avaliação
+                            </Link>
+                            <Link 
+                              href={`/admin/alunos/${aluno.id}/evolucao`}
+                              className="text-purple-600 hover:text-purple-900"
+                              title="Ver evolução simples"
+                            >
+                              Evolução
+                            </Link>
+                            <Link 
+                              href={`/admin/alunos/${aluno.id}/evolucao-avancada`}
+                              className="text-indigo-600 hover:text-indigo-900"
+                              title="Ver análise avançada"
+                            >
+                              Análise Avançada
                             </Link>
                           </div>
                         </td>

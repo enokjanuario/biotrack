@@ -29,6 +29,20 @@
       ]
     },
     {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "email",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "avaliacoes",
       "queryScope": "COLLECTION",
       "fields": [

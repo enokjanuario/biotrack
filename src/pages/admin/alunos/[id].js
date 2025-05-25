@@ -7,6 +7,8 @@ import Layout from '../../../components/layout/Layout';
 import { formatDate } from '../../../utils/formatDate';
 import Link from 'next/link';
 import LineChart from '../../../components/layout/charts/LineChart';
+import FotoGaleria from '../../../components/ui/FotoGaleria';
+import { prepararDadosFotosParaExibicao } from '../../../utils/imageUploadLocal';
 
 export default function DetalhesAluno() {
   const router = useRouter();
@@ -85,10 +87,15 @@ export default function DetalhesAluno() {
         }
         
         // Processar dados das avaliações
-        let avaliacoesData = avaliacoesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        let avaliacoesData = avaliacoesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            // Processar fotos se existirem
+            fotos: data.fotos ? prepararDadosFotosParaExibicao(data.fotos) : null
+          };
+        });
         
         // Ordenar manualmente se necessário
         avaliacoesData = avaliacoesData.sort((a, b) => {
@@ -289,6 +296,9 @@ export default function DetalhesAluno() {
     );
   }
 
+  // Filtrar avaliações que têm fotos e prepará-las para exibição
+  const avaliacoesComFotos = avaliacoes.filter(av => av.fotos && Object.keys(av.fotos).length > 0);
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
@@ -317,6 +327,37 @@ export default function DetalhesAluno() {
               </svg>
               Nova Avaliação
             </Link>
+            {avaliacoes.length > 0 && (
+              <>
+                <Link 
+                  href={`/admin/alunos/${aluno.id}/evolucao`}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Evolução
+                </Link>
+                <Link 
+                  href={`/admin/alunos/${aluno.id}/evolucao-avancada`}
+                  className="inline-flex items-center px-3 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Análise Avançada
+                </Link>
+                <Link 
+                  href={`/admin/alunos/${aluno.id}/relatorio`}
+                  className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Relatório PDF
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -462,6 +503,54 @@ export default function DetalhesAluno() {
           </div>
         </div>
         
+        {/* Galeria de Fotos das Avaliações */}
+        {avaliacoesComFotos.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4">
+              <h2 className="text-xl font-semibold text-white flex items-center">
+                <svg className="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Registro Fotográfico ({avaliacoesComFotos.length} avaliações com fotos)
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="space-y-8">
+                {avaliacoesComFotos.slice(0, 5).map((avaliacao, index) => (
+                  <div key={avaliacao.id} className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Avaliação de {formatDate(avaliacao.dataAvaliacao?.toDate())}
+                      </h3>
+                      {index === 0 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          Mais recente
+                        </span>
+                      )}
+                    </div>
+                    
+                    <FotoGaleria 
+                      fotos={avaliacao.fotos}
+                      aluno={aluno}
+                      dataAvaliacao={formatDate(avaliacao.dataAvaliacao?.toDate())}
+                      showModal={true}
+                    />
+                  </div>
+                ))}
+                
+                {avaliacoesComFotos.length > 5 && (
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-gray-500">
+                      Mostrando as 5 avaliações mais recentes com fotos. 
+                      Total: {avaliacoesComFotos.length} avaliações com fotos.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Histórico de Avaliações */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="bg-gradient-to-r from-gray-500 to-gray-600 px-6 py-4">
@@ -488,6 +577,7 @@ export default function DetalhesAluno() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Gordura</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IMC</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Massa Magra (kg)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fotos</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
@@ -515,6 +605,20 @@ export default function DetalhesAluno() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {avaliacao.massaMagra || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {avaliacao.fotos && Object.keys(avaliacao.fotos).length > 0 ? (
+                            <div className="flex items-center">
+                              <svg className="h-5 w-5 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="text-sm text-green-600 font-medium">
+                                {Object.keys(avaliacao.fotos).length}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <Link 

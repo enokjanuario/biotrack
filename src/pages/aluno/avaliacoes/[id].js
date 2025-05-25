@@ -5,6 +5,7 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import Layout from '../../../components/layout/Layout';
 import { formatDate } from '../../../utils/formatDate';
+import { prepararDadosFotosParaExibicao } from '../../../utils/imageUploadLocal';
 import Link from 'next/link';
 
 export default function DetalhesAvaliacao() {
@@ -34,7 +35,9 @@ export default function DetalhesAvaliacao() {
           
           const avaliacaoData = {
             id: avaliacaoDoc.id,
-            ...avaliacaoDoc.data()
+            ...avaliacaoDoc.data(),
+            // Processar fotos se existirem
+            fotos: avaliacaoDoc.data().fotos ? prepararDadosFotosParaExibicao(avaliacaoDoc.data().fotos) : null
           };
           
           // Verificar se a avaliação pertence ao aluno logado

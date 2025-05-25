@@ -175,6 +175,15 @@ export default function AlunoDashboard() {
                         Ver evolução completa →
                       </Link>
                     </div>
+                    
+                    <div className="mt-2">
+                      <Link 
+                        href="/aluno/evolucao-avancada"
+                        className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                      >
+                        Análise avançada →
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 italic">É necessário ter pelo menos duas avaliações para ver o progresso</p>

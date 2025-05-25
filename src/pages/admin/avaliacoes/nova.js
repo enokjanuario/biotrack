@@ -8,14 +8,23 @@ import Layout from '../../../components/layout/Layout';
 import Link from 'next/link';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import FotoUpload from '../../../components/ui/FotoUpload';
+import { 
+  processarMultiplasImagens, 
+  salvarFotosAvaliacao,
+  formatarTamanho 
+} from '../../../utils/imageUploadLocal';
 
 export default function NovaAvaliacao() {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();
   const { currentUser, userType } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [processandoFotos, setProcessandoFotos] = useState(false);
   const [alunos, setAlunos] = useState([]);
   const [selectedAluno, setSelectedAluno] = useState(null);
   const [loadingAlunos, setLoadingAlunos] = useState(true);
+  const [fotos, setFotos] = useState({});
+  const [progressoFotos, setProgressoFotos] = useState(null);
   const router = useRouter();
   const { alunoId } = router.query;
   
@@ -26,6 +35,27 @@ export default function NovaAvaliacao() {
   const peso = watch('peso');
   const altura = watch('altura');
   const percentualGordura = watch('percentualGordura');
+
+  // Função para mostrar informações sobre o modo gratuito
+  const mostrarInfoModoGratuito = () => {
+    const totalFotos = Object.keys(fotos).length;
+    let tamanhoEstimado = 0;
+    
+    Object.values(fotos).forEach(file => {
+      if (file instanceof File) {
+        tamanhoEstimado += file.size;
+      }
+    });
+
+    toast.info(
+      `💡 Modo Gratuito Ativado:\n` +
+      `• ${totalFotos} fotos selecionadas\n` +
+      `• Tamanho estimado: ${formatarTamanho(tamanhoEstimado)}\n` +
+      `• Fotos serão otimizadas automaticamente\n` +
+      `• Máximo 2MB por foto`, 
+      { autoClose: 8000 }
+    );
+  };
 
   useEffect(() => {
     // Quando peso e altura são preenchidos, calcula o IMC automaticamente
@@ -95,12 +125,12 @@ export default function NovaAvaliacao() {
     try {
       setLoading(true);
       
-      // Preparar dados da avaliação
+      // Preparar dados básicos da avaliação
       const avaliacaoData = {
         alunoId: data.alunoId,
         alunoNome: selectedAluno?.nome || '',
         avaliadorId: currentUser.uid,
-        avaliador: 'Admin', // Isso poderia ser buscado do perfil do admin
+        avaliador: 'Admin',
         dataAvaliacao: Timestamp.fromDate(data.dataAvaliacao ? new Date(data.dataAvaliacao) : new Date()),
         
         // Composição corporal
@@ -135,10 +165,51 @@ export default function NovaAvaliacao() {
         createdAt: Timestamp.now()
       };
       
-      // Salvar avaliação no Firestore
-      await addDoc(collection(db, 'avaliacoes'), avaliacaoData);
+      // Salvar avaliação no Firestore primeiro (para obter o ID)
+      const avaliacaoRef = await addDoc(collection(db, 'avaliacoes'), avaliacaoData);
+      const avaliacaoId = avaliacaoRef.id;
       
-      toast.success('Avaliação cadastrada com sucesso!');
+      // Se há fotos para processar, processá-las e salvar
+      if (Object.keys(fotos).length > 0) {
+        setProcessandoFotos(true);
+        toast.info('🖼️ Processando fotos no modo gratuito...');
+        
+        try {
+          const resultadosProcessamento = await processarMultiplasImagens(
+            fotos,
+            (progress) => {
+              setProgressoFotos(progress);
+              toast.info(`Processando foto ${progress.processados}/${progress.total}: ${progress.tipo}`);
+            }
+          );
+          
+          // Salvar fotos processadas no Firestore
+          const resultadoSalvar = await salvarFotosAvaliacao(avaliacaoId, resultadosProcessamento);
+          
+          if (resultadoSalvar.sucesso) {
+            toast.success(`✅ ${resultadoSalvar.quantidadeSalvas} fotos salvas com sucesso!`);
+          } else {
+            toast.warning('Algumas fotos não puderam ser salvas.');
+          }
+          
+          // Verificar se houve algum erro no processamento
+          const errosProcessamento = Object.entries(resultadosProcessamento)
+            .filter(([_, resultado]) => !resultado.sucesso)
+            .map(([tipo, resultado]) => `${tipo}: ${resultado.erro}`);
+          
+          if (errosProcessamento.length > 0) {
+            toast.warning(`Problemas em algumas fotos: ${errosProcessamento.join(', ')}`);
+          }
+        } catch (processError) {
+          console.error('Erro no processamento de fotos:', processError);
+          toast.error('Erro ao processar fotos, mas a avaliação foi salva.');
+        } finally {
+          setProcessandoFotos(false);
+          setProgressoFotos(null);
+        }
+      }
+      
+      toast.success('✅ Avaliação cadastrada com sucesso!');
       
       // Aguardar um pouco antes de redirecionar
       setTimeout(() => {
@@ -156,7 +227,10 @@ export default function NovaAvaliacao() {
     <Layout>
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Nova Avaliação Física</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Nova Avaliação Física</h1>
+            <p className="text-sm text-green-600 mt-1">🎉 Modo Gratuito - Fotos salvas no Firestore</p>
+          </div>
           <Link 
             href="/admin/alunos"
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -267,6 +341,17 @@ export default function NovaAvaliacao() {
                   <button
                     type="button"
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'fotos'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    onClick={() => setActiveTab('fotos')}
+                  >
+                    📷 Fotos
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'observacoes'
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -298,8 +383,8 @@ export default function NovaAvaliacao() {
                           } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                           {...register('peso', { 
                             required: 'Peso é obrigatório',
-                            min: { value: 20, message: 'Peso mínimo de 20kg' },
-                            max: { value: 300, message: 'Peso máximo de 300kg' }
+                            min: { value: 30, message: 'Peso deve ser maior que 30kg' },
+                            max: { value: 300, message: 'Peso deve ser menor que 300kg' }
                           })}
                         />
                         {errors.peso && (
@@ -322,8 +407,8 @@ export default function NovaAvaliacao() {
                           } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                           {...register('altura', { 
                             required: 'Altura é obrigatória',
-                            min: { value: 100, message: 'Altura mínima de 100cm' },
-                            max: { value: 250, message: 'Altura máxima de 250cm' }
+                            min: { value: 100, message: 'Altura deve ser maior que 100cm' },
+                            max: { value: 250, message: 'Altura deve ser menor que 250cm' }
                           })}
                         />
                         {errors.altura && (
@@ -334,7 +419,7 @@ export default function NovaAvaliacao() {
                     
                     <div>
                       <label htmlFor="imc" className="block text-sm font-medium text-gray-700">
-                        IMC (calculado)
+                        IMC (calculado automaticamente)
                       </label>
                       <div className="mt-1">
                         <input
@@ -342,7 +427,7 @@ export default function NovaAvaliacao() {
                           type="number"
                           step="0.1"
                           readOnly
-                          className="bg-gray-100 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm"
                           {...register('imc')}
                         />
                       </div>
@@ -362,8 +447,8 @@ export default function NovaAvaliacao() {
                           } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                           {...register('percentualGordura', { 
                             required: 'Percentual de gordura é obrigatório',
-                            min: { value: 1, message: 'Mínimo de 1%' },
-                            max: { value: 60, message: 'Máximo de 60%' }
+                            min: { value: 3, message: 'Percentual deve ser maior que 3%' },
+                            max: { value: 50, message: 'Percentual deve ser menor que 50%' }
                           })}
                         />
                         {errors.percentualGordura && (
@@ -374,7 +459,7 @@ export default function NovaAvaliacao() {
                     
                     <div>
                       <label htmlFor="massaGorda" className="block text-sm font-medium text-gray-700">
-                        Massa Gorda (kg) (calculado)
+                        Massa Gorda (kg)
                       </label>
                       <div className="mt-1">
                         <input
@@ -382,7 +467,7 @@ export default function NovaAvaliacao() {
                           type="number"
                           step="0.1"
                           readOnly
-                          className="bg-gray-100 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm"
                           {...register('massaGorda')}
                         />
                       </div>
@@ -390,7 +475,7 @@ export default function NovaAvaliacao() {
                     
                     <div>
                       <label htmlFor="massaMagra" className="block text-sm font-medium text-gray-700">
-                        Massa Magra (kg) (calculado)
+                        Massa Magra (kg)
                       </label>
                       <div className="mt-1">
                         <input
@@ -398,7 +483,7 @@ export default function NovaAvaliacao() {
                           type="number"
                           step="0.1"
                           readOnly
-                          className="bg-gray-100 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm"
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm"
                           {...register('massaMagra')}
                         />
                       </div>
@@ -600,6 +685,51 @@ export default function NovaAvaliacao() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+              
+              {/* Nova aba de Fotos */}
+              {activeTab === 'fotos' && (
+                <div className="space-y-6">
+                  {/* Informações do modo gratuito */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-green-800">🎉 Modo Gratuito Ativado</h4>
+                        <p className="text-sm text-green-700 mt-1">Fotos são otimizadas e salvas no Firestore. Clique para ver detalhes.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={mostrarInfoModoGratuito}
+                        className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-800 bg-green-100 hover:bg-green-200 transition-colors"
+                      >
+                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Ver Informações
+                      </button>
+                    </div>
+                  </div>
+
+                  <FotoUpload 
+                    fotos={fotos}
+                    onFotosChange={setFotos}
+                    disabled={loading || processandoFotos}
+                  />
+                  
+                  {progressoFotos && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <svg className="animate-spin h-5 w-5 text-blue-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm text-blue-800">
+                          Processando fotos: {progressoFotos.processados}/{progressoFotos.total}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
