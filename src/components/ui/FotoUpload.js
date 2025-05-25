@@ -33,8 +33,7 @@ const FotoUpload = ({ fotos = {}, onFotosChange, disabled = false }) => {
           try {
             const preview = await criarPreview(foto);
             newPreviews[tipo] = preview;
-          } catch (error) {
-            console.error('Erro ao criar preview:', error);
+              } catch (error) {
           }
         } else if (foto && typeof foto === 'string') {
           // Se é uma URL, usar diretamente

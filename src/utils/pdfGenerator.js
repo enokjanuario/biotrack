@@ -257,8 +257,6 @@ export const generatePDFReport = async (aluno, avaliacoes, stats) => {
                 pdf.text(labels[tipo], labelX, currentY + fotoHeight + 4);
                 
               } catch (imageError) {
-                console.error('Erro ao carregar imagem:', imageError);
-                
                 // Desenhar placeholder se não conseguir carregar a imagem
                 pdf.setFillColor(240, 240, 240);
                 pdf.rect(fotoX, currentY, fotoWidth, fotoHeight, 'F');
@@ -295,7 +293,6 @@ export const generatePDFReport = async (aluno, avaliacoes, stats) => {
           currentY += fotoHeight + 15;
           
         } catch (error) {
-          console.error('Erro ao processar fotos da avaliação:', error);
           pdf.setTextColor(120, 120, 120);
           pdf.setFontSize(9);
           pdf.text('Erro ao carregar fotos desta avaliação', margin, currentY);
@@ -485,7 +482,6 @@ export const generatePDFReport = async (aluno, avaliacoes, stats) => {
     return true;
     
   } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
     throw error;
   }
 };
@@ -521,7 +517,6 @@ export const generateChartPDF = async (chartElement, aluno, chartTitle) => {
     
     return true;
   } catch (error) {
-    console.error('Erro ao gerar PDF do gráfico:', error);
     throw error;
   }
 }; 

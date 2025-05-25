@@ -6,16 +6,32 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import Layout from '../../../../components/layout/Layout';
 import Link from 'next/link';
 import { formatDate } from '../../../../utils/formatDate';
-import LineChart from '../../../../components/layout/charts/LineChart';
+import { prepararDadosFotosParaExibicao } from '../../../../utils/imageUploadLocal';
+import dynamic from 'next/dynamic';
 
-export default function AdminAlunoEvolucao() {
+// Importação dinâmica dos componentes de gráfico
+const ComposicaoCorporalChart = dynamic(() => import('../../../../components/layout/charts/ComposicaoCorporalChart'), { ssr: false });
+const CircunferenciasChart = dynamic(() => import('../../../../components/layout/charts/CircunferenciasChart'), { ssr: false });
+const TestesChart = dynamic(() => import('../../../../components/layout/charts/TestesChart'), { ssr: false });
+const AdvancedProgressChart = dynamic(() => import('../../../../components/layout/charts/AdvancedProgressChart'), { ssr: false });
+const ComparisonDashboard = dynamic(() => import('../../../../components/layout/charts/ComparisonDashboard'), { ssr: false });
+
+export default function AdminAlunoEvolucaoCompleta() {
   const router = useRouter();
   const { id } = router.query;
   const { currentUser, userType } = useAuth();
   const [aluno, setAluno] = useState(null);
   const [avaliacoes, setAvaliacoes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [periodoSelecionado, setPeriodoSelecionado] = useState('ultimos6Meses');
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, basico, avancado
+  const [activeTab, setActiveTab] = useState('composicao');
   const [selectedMetric, setSelectedMetric] = useState('peso');
+  const [dataSeries, setDataSeries] = useState({
+    composicao: [],
+    circunferencias: [],
+    testes: []
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,11 +58,33 @@ export default function AdminAlunoEvolucao() {
           // Tentar buscar com orderBy, com fallback para busca simples
           let avaliacoesSnapshot;
           try {
-            const avaliacoesQuery = query(
+            let avaliacoesQuery = query(
               collection(db, 'avaliacoes'),
               where('alunoId', '==', id),
               orderBy('dataAvaliacao', 'asc')
             );
+
+            // Filtrar por período se não for todas as avaliações
+            if (periodoSelecionado !== 'todasAvaliacoes') {
+              const hoje = new Date();
+              let dataLimite;
+              
+              if (periodoSelecionado === 'ultimos3Meses') {
+                dataLimite = new Date(hoje.setMonth(hoje.getMonth() - 3));
+              } else if (periodoSelecionado === 'ultimos6Meses') {
+                dataLimite = new Date(hoje.setMonth(hoje.getMonth() - 6));
+              } else if (periodoSelecionado === 'ultimoAno') {
+                dataLimite = new Date(hoje.setFullYear(hoje.getFullYear() - 1));
+              }
+              
+              avaliacoesQuery = query(
+                collection(db, 'avaliacoes'),
+                where('alunoId', '==', id),
+                where('dataAvaliacao', '>=', dataLimite),
+                orderBy('dataAvaliacao', 'asc')
+              );
+            }
+
             avaliacoesSnapshot = await getDocs(avaliacoesQuery);
           } catch (indexError) {
             if (indexError.code === 'failed-precondition' && indexError.message.includes('index')) {
@@ -57,10 +95,16 @@ export default function AdminAlunoEvolucao() {
           }
           
           // Processar dados das avaliações
-          let avaliacoesData = avaliacoesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          let avaliacoesData = avaliacoesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              // Processar fotos se existirem
+              fotos: data.fotos ? prepararDadosFotosParaExibicao(data.fotos) : null,
+              dataFormatada: formatDate(data.dataAvaliacao?.toDate())
+            };
+          });
           
           // Ordenar manualmente se necessário
           avaliacoesData = avaliacoesData.sort((a, b) => {
@@ -68,10 +112,32 @@ export default function AdminAlunoEvolucao() {
             const dataB = b.dataAvaliacao?.toDate ? b.dataAvaliacao.toDate() : new Date(b.dataAvaliacao);
             return dataA - dataB; // Ordem crescente para evolução
           });
+
+          // Filtrar por período se necessário (fallback manual)
+          if (periodoSelecionado !== 'todasAvaliacoes' && avaliacoesSnapshot === simpleSnapshot) {
+            const hoje = new Date();
+            let dataLimite;
+            
+            if (periodoSelecionado === 'ultimos3Meses') {
+              dataLimite = new Date(hoje.setMonth(hoje.getMonth() - 3));
+            } else if (periodoSelecionado === 'ultimos6Meses') {
+              dataLimite = new Date(hoje.setMonth(hoje.getMonth() - 6));
+            } else if (periodoSelecionado === 'ultimoAno') {
+              dataLimite = new Date(hoje.setFullYear(hoje.getFullYear() - 1));
+            }
+
+            avaliacoesData = avaliacoesData.filter(av => {
+              const dataAv = av.dataAvaliacao?.toDate ? av.dataAvaliacao.toDate() : new Date(av.dataAvaliacao);
+              return dataAv >= dataLimite;
+            });
+          }
           
           setAvaliacoes(avaliacoesData);
+          
+          // Preparar dados para os gráficos
+          prepararDadosGraficos(avaliacoesData);
         } catch (error) {
-          console.error('Erro ao buscar dados:', error);
+          // Erro removido - sem console.log
         } finally {
           setLoading(false);
         }
@@ -85,58 +151,164 @@ export default function AdminAlunoEvolucao() {
     } else if (!currentUser) {
       setLoading(false);
     }
-  }, [id, currentUser, userType]);
+  }, [id, currentUser, userType, periodoSelecionado]);
 
-  // Preparar dados para gráfico
-  const prepararDadosGrafico = () => {
-    if (avaliacoes.length === 0) return { labels: [], datasets: [] };
+  // Função para preparar dados para os gráficos
+  const prepararDadosGraficos = (avaliacoesData) => {
+    // Dados para gráfico de composição corporal
+    const dadosComposicao = {
+      labels: avaliacoesData.map(av => av.dataFormatada),
+      datasets: [
+        {
+          label: 'Peso (kg)',
+          data: avaliacoesData.map(av => av.peso),
+          borderColor: 'rgb(53, 162, 235)',
+          backgroundColor: 'rgba(53, 162, 235, 0.5)',
+          yAxisID: 'y',
+        },
+        {
+          label: '% Gordura',
+          data: avaliacoesData.map(av => av.percentualGordura),
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+          yAxisID: 'y1',
+        },
+        {
+          label: 'Massa Magra (kg)',
+          data: avaliacoesData.map(av => av.massaMagra),
+          borderColor: 'rgb(75, 192, 192)',
+          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+          yAxisID: 'y',
+        }
+      ]
+    };
+    
+    // Verificar se há dados de circunferências para montar o gráfico
+    const circunferenciasDisponiveis = {};
+    
+    // Primeiro, identifique todas as circunferências disponíveis em todas as avaliações
+    avaliacoesData.forEach(av => {
+      if (av.circunferencias) {
+        Object.keys(av.circunferencias).forEach(circ => {
+          circunferenciasDisponiveis[circ] = true;
+        });
+      }
+    });
+    
+    // Cores para usar nos datasets
+    const cores = [
+      { borderColor: 'rgb(53, 162, 235)', backgroundColor: 'rgba(53, 162, 235, 0.5)' },
+      { borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)' },
+      { borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.5)' },
+      { borderColor: 'rgb(255, 159, 64)', backgroundColor: 'rgba(255, 159, 64, 0.5)' },
+      { borderColor: 'rgb(153, 102, 255)', backgroundColor: 'rgba(153, 102, 255, 0.5)' },
+      { borderColor: 'rgb(201, 203, 207)', backgroundColor: 'rgba(201, 203, 207, 0.5)' }
+    ];
+    
+    // Crie um dataset para cada circunferência
+    const datasetsCircunferencias = Object.keys(circunferenciasDisponiveis).map((circ, index) => {
+      const cor = cores[index % cores.length];
+      return {
+        label: circ.replace(/([A-Z])/g, ' $1').trim(), // Formatar nome para exibição
+        data: avaliacoesData.map(av => av.circunferencias?.[circ] || null),
+        borderColor: cor.borderColor,
+        backgroundColor: cor.backgroundColor,
+      };
+    });
+    
+    const dadosCircunferencias = {
+      labels: avaliacoesData.map(av => av.dataFormatada),
+      datasets: datasetsCircunferencias
+    };
+    
+    // Verificar se há dados de testes para montar o gráfico
+    const testesDisponiveis = {};
+    
+    // Identificar todos os testes disponíveis
+    avaliacoesData.forEach(av => {
+      if (av.testes) {
+        Object.keys(av.testes).forEach(teste => {
+          testesDisponiveis[teste] = true;
+        });
+      }
+    });
+    
+    // Crie um dataset para cada teste
+    const datasetsTestes = Object.keys(testesDisponiveis).map((teste, index) => {
+      const cor = cores[index % cores.length];
+      return {
+        label: teste.replace(/([A-Z])/g, ' $1').trim(), // Formatar nome para exibição
+        data: avaliacoesData.map(av => av.testes?.[teste] || null),
+        borderColor: cor.borderColor,
+        backgroundColor: cor.backgroundColor,
+      };
+    });
+    
+    const dadosTestes = {
+      labels: avaliacoesData.map(av => av.dataFormatada),
+      datasets: datasetsTestes
+    };
+    
+    setDataSeries({
+      composicao: dadosComposicao,
+      circunferencias: dadosCircunferencias,
+      testes: dadosTestes
+    });
+  };
 
-    const labels = avaliacoes.map(av => formatDate(av.dataAvaliacao?.toDate()));
+  // Preparar dados para gráficos individuais (análise avançada)
+  const prepararDadosMetrica = (metrica) => {
+    if (avaliacoes.length === 0) return { labels: [], data: [] };
+    
+    const labels = avaliacoes.map(av => av.dataFormatada);
     let data = [];
-    let label = '';
-    let borderColor = '#3b82f6';
-    let backgroundColor = 'rgba(59, 130, 246, 0.1)';
-
-    switch (selectedMetric) {
+    
+    switch (metrica) {
       case 'peso':
         data = avaliacoes.map(av => av.peso || null);
-        label = 'Peso (kg)';
-        borderColor = '#3b82f6';
-        backgroundColor = 'rgba(59, 130, 246, 0.1)';
         break;
       case 'gordura':
         data = avaliacoes.map(av => av.percentualGordura || null);
-        label = 'Gordura Corporal (%)';
-        borderColor = '#ef4444';
-        backgroundColor = 'rgba(239, 68, 68, 0.1)';
         break;
       case 'massaMagra':
         data = avaliacoes.map(av => av.massaMagra || null);
-        label = 'Massa Magra (kg)';
-        borderColor = '#10b981';
-        backgroundColor = 'rgba(16, 185, 129, 0.1)';
         break;
       case 'imc':
         data = avaliacoes.map(av => av.imc || null);
-        label = 'IMC';
-        borderColor = '#8b5cf6';
-        backgroundColor = 'rgba(139, 92, 246, 0.1)';
         break;
       default:
         data = avaliacoes.map(() => null);
     }
+    
+    return { labels, data };
+  };
 
-    return {
-      labels,
-      datasets: [{
-        label,
-        data,
-        borderColor,
-        backgroundColor,
-        fill: true,
-        tension: 0.3,
-      }]
-    };
+  // Configurações das métricas
+  const metricas = {
+    peso: {
+      title: 'Evolução do Peso',
+      unit: 'kg',
+      color: '#3b82f6',
+      goal: null
+    },
+    gordura: {
+      title: 'Evolução do Percentual de Gordura',
+      unit: '%',
+      color: '#ef4444',
+      goal: null
+    },
+    massaMagra: {
+      title: 'Evolução da Massa Magra',
+      unit: 'kg',
+      color: '#10b981',
+      goal: null
+    },
+    imc: {
+      title: 'Evolução do IMC',
+      unit: 'kg/m²',
+      color: '#8b5cf6',
+      goal: 25 // Meta exemplo para IMC
+    }
   };
 
   if (loading) {
@@ -206,21 +378,6 @@ export default function AdminAlunoEvolucao() {
     );
   }
 
-  if (!aluno) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center py-12">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Aluno não encontrado</h1>
-            <Link href="/admin/alunos" className="text-blue-600 hover:text-blue-800">
-              Voltar para lista de alunos
-            </Link>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
@@ -228,223 +385,286 @@ export default function AdminAlunoEvolucao() {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Link 
-                  href="/admin/alunos"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  ← Alunos
-                </Link>
-                <span className="text-gray-400">/</span>
-                <Link 
-                  href={`/admin/alunos/${id}`}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  {aluno.nome}
-                </Link>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-600 text-sm">Evolução</span>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900">Evolução do Aluno</h1>
-              <p className="text-gray-600 mt-1">Acompanhe o progresso de {aluno.nome}</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Análise de Evolução - {aluno?.nome || 'Carregando...'}
+              </h1>
+              <p className="text-gray-600 mt-1">Acompanhe o progresso físico do aluno de forma completa</p>
             </div>
             <div className="flex items-center gap-2">
               <Link 
-                href={`/admin/alunos/${id}/evolucao-avancada`}
-                className="px-3 py-2 text-sm border border-purple-300 rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                href={`/admin/alunos/${id}`}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Análise Avançada
+                ← Voltar ao Perfil
               </Link>
               <Link 
-                href={`/admin/alunos/${id}`}
-                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                href={`/admin/alunos/${id}/relatorio`}
+                className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Perfil do Aluno
+                Gerar Relatório
               </Link>
             </div>
           </div>
         </div>
-
-        {/* Informações do Aluno */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-sm text-gray-600">Nome</p>
-              <p className="text-lg font-semibold text-gray-900">{aluno.nome}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-gray-600">Idade</p>
-              <p className="text-lg font-semibold text-gray-900">{aluno.idade} anos</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-gray-600">Altura</p>
-              <p className="text-lg font-semibold text-gray-900">{aluno.altura} cm</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-gray-600">Total de Avaliações</p>
-              <p className="text-lg font-semibold text-gray-900">{avaliacoes.length}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Seletor de Métrica */}
+        
+        {/* Controles */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row justify-between gap-4">
+            {/* Filtro de Período */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Métrica para Visualização</h2>
-              <p className="text-sm text-gray-600">Selecione qual métrica você deseja acompanhar</p>
+              <label htmlFor="periodo" className="block text-sm font-medium text-gray-700 mb-2">
+                Período de Análise
+              </label>
+              <select
+                id="periodo"
+                value={periodoSelecionado}
+                onChange={(e) => setPeriodoSelecionado(e.target.value)}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg"
+              >
+                <option value="ultimos3Meses">Últimos 3 meses</option>
+                <option value="ultimos6Meses">Últimos 6 meses</option>
+                <option value="ultimoAno">Último ano</option>
+                <option value="todasAvaliacoes">Todas as avaliações</option>
+              </select>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedMetric('peso')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  selectedMetric === 'peso'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Peso
-              </button>
-              <button
-                onClick={() => setSelectedMetric('gordura')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  selectedMetric === 'gordura'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                % Gordura
-              </button>
-              <button
-                onClick={() => setSelectedMetric('massaMagra')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  selectedMetric === 'massaMagra'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Massa Magra
-              </button>
-              <button
-                onClick={() => setSelectedMetric('imc')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  selectedMetric === 'imc'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                IMC
-              </button>
+
+            {/* Tipo de Visualização */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Visualização
+              </label>
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveView('dashboard')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeView === 'dashboard' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setActiveView('basico')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeView === 'basico' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Básico
+                </button>
+                <button
+                  onClick={() => setActiveView('avancado')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeView === 'avancado' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Avançado
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Gráfico de Evolução */}
-        {avaliacoes.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-md">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
-              <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma avaliação encontrada</h3>
-            <p className="text-gray-500 mb-4">
-              Este aluno ainda não possui avaliações registradas.
-            </p>
-            <Link 
-              href={`/admin/avaliacoes/nova?alunoId=${id}`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Registrar Primeira Avaliação
-            </Link>
+        {/* Conteúdo baseado na visualização selecionada */}
+        {activeView === 'dashboard' && (
+          <div className="space-y-6">
+            <ComparisonDashboard avaliacoes={avaliacoes} />
           </div>
-        ) : avaliacoes.length === 1 ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-md">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-              <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Apenas uma avaliação</h3>
-            <p className="text-gray-500 mb-4">
-              É necessário ter pelo menos duas avaliações para visualizar a evolução.
-            </p>
-            <Link 
-              href={`/admin/avaliacoes/nova?alunoId=${id}`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Registrar Nova Avaliação
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="h-96">
-              <LineChart 
-                data={prepararDadosGrafico()}
-                title={`Evolução - ${aluno.nome}`}
-              />
-            </div>
-            
-            {/* Resumo */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo da Evolução</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{avaliacoes.length}</p>
-                  <p className="text-sm text-gray-600">Total de Avaliações</p>
-                </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">
-                    {Math.ceil((new Date(avaliacoes[avaliacoes.length - 1].dataAvaliacao?.toDate()) - 
-                               new Date(avaliacoes[0].dataAvaliacao?.toDate())) / 
-                               (1000 * 60 * 60 * 24))}
-                  </p>
-                  <p className="text-sm text-gray-600">Dias de Acompanhamento</p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">
-                    {(avaliacoes.length / Math.max(1, Math.ceil((new Date(avaliacoes[avaliacoes.length - 1].dataAvaliacao?.toDate()) - 
-                               new Date(avaliacoes[0].dataAvaliacao?.toDate())) / 
-                               (1000 * 60 * 60 * 24 * 30)))).toFixed(1)}
-                  </p>
-                  <p className="text-sm text-gray-600">Avaliações por Mês</p>
-                </div>
+        )}
+
+        {activeView === 'basico' && (
+          <div className="space-y-6">
+            {/* Abas de navegação */}
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                  <button
+                    onClick={() => setActiveTab('composicao')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'composicao'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Composição Corporal
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('circunferencias')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'circunferencias'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Circunferências
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('testes')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'testes'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Testes
+                  </button>
+                </nav>
+              </div>
+
+              <div className="p-6">
+                {activeTab === 'composicao' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução da Composição Corporal</h3>
+                    {dataSeries.composicao.labels?.length > 0 ? (
+                      <ComposicaoCorporalChart data={dataSeries.composicao} />
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Nenhum dado de composição corporal encontrado para o período selecionado.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'circunferencias' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução das Circunferências</h3>
+                    {dataSeries.circunferencias.labels?.length > 0 && dataSeries.circunferencias.datasets?.length > 0 ? (
+                      <CircunferenciasChart data={dataSeries.circunferencias} />
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Nenhum dado de circunferências encontrado para o período selecionado.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'testes' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução dos Testes</h3>
+                    {dataSeries.testes.labels?.length > 0 && dataSeries.testes.datasets?.length > 0 ? (
+                      <TestesChart data={dataSeries.testes} />
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Nenhum dado de testes encontrado para o período selecionado.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Ações Rápidas */}
-        <div className="mt-8 bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-          <div className="flex flex-wrap gap-3">
-            <Link 
-              href={`/admin/avaliacoes/nova?alunoId=${id}`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Nova Avaliação
-            </Link>
-            <Link 
-              href={`/admin/alunos/${id}/evolucao-avancada`}
-              className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100"
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Análise Avançada
-            </Link>
-            <Link 
-              href={`/admin/alunos/${id}/relatorio`}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Gerar Relatório
-            </Link>
+        {activeView === 'avancado' && (
+          <div className="space-y-6">
+            {/* Seletor de Métrica */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {Object.entries(metricas).map(([key, config]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedMetric(key)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedMetric === key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {config.title}
+                  </button>
+                ))}
+              </div>
+
+              {/* Gráfico Individual da Métrica */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  {metricas[selectedMetric]?.title}
+                </h3>
+                {avaliacoes.length > 0 ? (
+                  <AdvancedProgressChart 
+                    data={prepararDadosMetrica(selectedMetric)}
+                    metrica={metricas[selectedMetric]}
+                    avaliacoes={avaliacoes}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    Nenhuma avaliação encontrada para o período selecionado.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resumo estatístico */}
+        <div className="bg-white rounded-lg shadow-md mt-6">
+          <div className="p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Resumo do Período</h3>
+            
+            {avaliacoes.length >= 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {['peso', 'percentualGordura', 'massaMagra', 'imc'].map(campo => {
+                  const calcularVariacao = (campo) => {
+                    if (avaliacoes.length < 2) return { valor: 0, percentual: 0 };
+                    
+                    const primeira = avaliacoes[0][campo] || 0;
+                    const ultima = avaliacoes[avaliacoes.length - 1][campo] || 0;
+                    const variacao = ultima - primeira;
+                    const percentual = primeira !== 0 ? (variacao / primeira) * 100 : 0;
+                    
+                    return { valor: variacao, percentual };
+                  };
+
+                  const variacao = calcularVariacao(campo);
+                  const labels = {
+                    peso: 'Peso',
+                    percentualGordura: '% Gordura',
+                    massaMagra: 'Massa Magra',
+                    imc: 'IMC'
+                  };
+                  const unidades = {
+                    peso: 'kg',
+                    percentualGordura: '%',
+                    massaMagra: 'kg',
+                    imc: ''
+                  };
+
+                  return (
+                    <div key={campo} className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700">{labels[campo]}</h4>
+                      <div className="mt-2">
+                        <div className={`text-lg font-semibold ${
+                          variacao.valor > 0 ? 'text-green-600' : variacao.valor < 0 ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                          {variacao.valor > 0 ? '+' : ''}{variacao.valor.toFixed(1)}{unidades[campo]}
+                        </div>
+                        <div className={`text-sm ${
+                          variacao.percentual > 0 ? 'text-green-600' : variacao.percentual < 0 ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                          {variacao.percentual > 0 ? '+' : ''}{variacao.percentual.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {avaliacoes.length < 2 && (
+              <div className="text-center py-8 text-gray-500">
+                É necessário ter pelo menos 2 avaliações para calcular a evolução.
+              </div>
+            )}
+            
+            {avaliacoes.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                Nenhuma avaliação encontrada para o período selecionado.
+              </div>
+            )}
           </div>
         </div>
       </div>

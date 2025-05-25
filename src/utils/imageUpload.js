@@ -80,16 +80,12 @@ export const uploadImagem = async (file, alunoId, avaliacaoId, tipoFoto) => {
       throw new Error(validacao.erro);
     }
 
-    console.log('Iniciando upload:', { alunoId, avaliacaoId, tipoFoto, fileSize: file.size });
-
     // Redimensionar se necessário
     const imagemOtimizada = await redimensionarImagem(file);
     
     // Criar referência no Storage
     const nomeArquivo = `${tipoFoto}.${file.type.split('/')[1]}`;
     const path = `avaliacoes/${alunoId}/${avaliacaoId}/${nomeArquivo}`;
-    
-    console.log('Caminho do upload:', path);
     
     const storageRef = ref(storage, path);
 
@@ -100,12 +96,10 @@ export const uploadImagem = async (file, alunoId, avaliacaoId, tipoFoto) => {
     
     while (tentativas < maxTentativas) {
       try {
-        console.log(`Tentativa ${tentativas + 1} de upload...`);
         snapshot = await uploadBytes(storageRef, imagemOtimizada);
         break; // Upload bem-sucedido
       } catch (uploadError) {
         tentativas++;
-        console.error(`Erro na tentativa ${tentativas}:`, uploadError);
         
         if (tentativas >= maxTentativas) {
           // Verificar se é erro de CORS ou configuração
@@ -127,8 +121,6 @@ export const uploadImagem = async (file, alunoId, avaliacaoId, tipoFoto) => {
     // Obter URL de download
     const downloadURL = await getDownloadURL(snapshot.ref);
     
-    console.log('Upload concluído com sucesso:', downloadURL);
-    
     return {
       sucesso: true,
       url: downloadURL,
@@ -136,7 +128,6 @@ export const uploadImagem = async (file, alunoId, avaliacaoId, tipoFoto) => {
       tipo: tipoFoto
     };
   } catch (error) {
-    console.error('Erro no upload:', error);
     return {
       sucesso: false,
       erro: error.message || 'Erro desconhecido no upload'
@@ -150,8 +141,6 @@ export const uploadMultiplasImagens = async (arquivos, alunoId, avaliacaoId, onP
   const total = Object.keys(arquivos).length;
   let processados = 0;
 
-  console.log('Iniciando upload múltiplo:', { total, alunoId, avaliacaoId });
-
   for (const [tipo, file] of Object.entries(arquivos)) {
     if (file) {
       try {
@@ -163,9 +152,7 @@ export const uploadMultiplasImagens = async (arquivos, alunoId, avaliacaoId, onP
           onProgress({ processados, total, tipo, resultado });
         }
         
-        console.log(`Upload ${processados}/${total} concluído:`, tipo, resultado.sucesso ? 'OK' : 'ERRO');
       } catch (error) {
-        console.error(`Erro no upload de ${tipo}:`, error);
         resultados[tipo] = { sucesso: false, erro: error.message };
         processados++;
         if (onProgress) {
@@ -175,7 +162,6 @@ export const uploadMultiplasImagens = async (arquivos, alunoId, avaliacaoId, onP
     }
   }
 
-  console.log('Upload múltiplo finalizado:', resultados);
   return resultados;
 };
 
@@ -187,7 +173,6 @@ export const deletarImagem = async (imagePath) => {
     await deleteObject(imageRef);
     return { sucesso: true };
   } catch (error) {
-    console.error('Erro ao deletar imagem:', error);
     return { sucesso: false, erro: error.message };
   }
 };

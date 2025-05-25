@@ -122,6 +122,31 @@ export default function NovaAvaliacao() {
       return;
     }
     
+    // Validar se há pelo menos uma foto
+    if (Object.keys(fotos).length === 0) {
+      toast.error('É obrigatório incluir pelo menos uma foto na avaliação');
+      return;
+    }
+    
+    // Validar se todos os testes físicos foram preenchidos
+    if (!data.testeForcaBraco || !data.testeResistencia || !data.testeFlexibilidade || !data.testeVO2max) {
+      toast.error('Todos os testes físicos são obrigatórios');
+      return;
+    }
+    
+    // Validar se todas as circunferências foram preenchidas
+    const circunferenciasObrigatorias = [
+      'circBracoDireito', 'circBracoEsquerdo', 'circAntebracoDireito', 'circAntebracoEsquerdo',
+      'circTorax', 'circCintura', 'circAbdomen', 'circQuadril',
+      'circCoxaDireita', 'circCoxaEsquerda', 'circPanturrilhaDireita', 'circPanturrilhaEsquerda'
+    ];
+    
+    const circunferenciasFaltando = circunferenciasObrigatorias.filter(campo => !data[campo]);
+    if (circunferenciasFaltando.length > 0) {
+      toast.error('Todas as circunferências são obrigatórias');
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -141,24 +166,28 @@ export default function NovaAvaliacao() {
         massaGorda: parseFloat(data.massaGorda),
         massaMagra: parseFloat(data.massaMagra),
         
-        // Circunferências (se preenchidas)
+        // Circunferências (com distinção direito/esquerdo)
         circunferencias: {
-          ...(data.circBraco && { braco: parseFloat(data.circBraco) }),
-          ...(data.circAntebraco && { antebraco: parseFloat(data.circAntebraco) }),
-          ...(data.circTorax && { torax: parseFloat(data.circTorax) }),
-          ...(data.circCintura && { cintura: parseFloat(data.circCintura) }),
-          ...(data.circAbdomen && { abdomen: parseFloat(data.circAbdomen) }),
-          ...(data.circQuadril && { quadril: parseFloat(data.circQuadril) }),
-          ...(data.circCoxa && { coxa: parseFloat(data.circCoxa) }),
-          ...(data.circPanturrilha && { panturrilha: parseFloat(data.circPanturrilha) }),
+          bracoDireito: parseFloat(data.circBracoDireito),
+          bracoEsquerdo: parseFloat(data.circBracoEsquerdo),
+          antebracoDireito: parseFloat(data.circAntebracoDireito),
+          antebracoEsquerdo: parseFloat(data.circAntebracoEsquerdo),
+          torax: parseFloat(data.circTorax),
+          cintura: parseFloat(data.circCintura),
+          abdomen: parseFloat(data.circAbdomen),
+          quadril: parseFloat(data.circQuadril),
+          coxaDireita: parseFloat(data.circCoxaDireita),
+          coxaEsquerda: parseFloat(data.circCoxaEsquerda),
+          panturrilhaDireita: parseFloat(data.circPanturrilhaDireita),
+          panturrilhaEsquerda: parseFloat(data.circPanturrilhaEsquerda),
         },
         
-        // Testes físicos (se preenchidos)
+        // Testes físicos (todos obrigatórios)
         testes: {
-          ...(data.testeForcaBraco && { forcaBraco: data.testeForcaBraco }),
-          ...(data.testeResistencia && { resistencia: data.testeResistencia }),
-          ...(data.testeFlexibilidade && { flexibilidade: data.testeFlexibilidade }),
-          ...(data.testeVO2max && { vo2max: data.testeVO2max }),
+          forcaBraco: parseFloat(data.testeForcaBraco),
+          resistencia: parseFloat(data.testeResistencia),
+          flexibilidade: parseFloat(data.testeFlexibilidade),
+          vo2max: parseFloat(data.testeVO2max),
         },
         
         observacoes: data.observacoes || '',
@@ -169,44 +198,42 @@ export default function NovaAvaliacao() {
       const avaliacaoRef = await addDoc(collection(db, 'avaliacoes'), avaliacaoData);
       const avaliacaoId = avaliacaoRef.id;
       
-      // Se há fotos para processar, processá-las e salvar
-      if (Object.keys(fotos).length > 0) {
-        setProcessandoFotos(true);
-        toast.info('🖼️ Processando fotos no modo gratuito...');
+      // Processar fotos (agora obrigatórias)
+      setProcessandoFotos(true);
+      toast.info('🖼️ Processando fotos no modo gratuito...');
+      
+      try {
+        const resultadosProcessamento = await processarMultiplasImagens(
+          fotos,
+          (progress) => {
+            setProgressoFotos(progress);
+            toast.info(`Processando foto ${progress.processados}/${progress.total}: ${progress.tipo}`);
+          }
+        );
         
-        try {
-          const resultadosProcessamento = await processarMultiplasImagens(
-            fotos,
-            (progress) => {
-              setProgressoFotos(progress);
-              toast.info(`Processando foto ${progress.processados}/${progress.total}: ${progress.tipo}`);
-            }
-          );
-          
-          // Salvar fotos processadas no Firestore
-          const resultadoSalvar = await salvarFotosAvaliacao(avaliacaoId, resultadosProcessamento);
-          
-          if (resultadoSalvar.sucesso) {
-            toast.success(`✅ ${resultadoSalvar.quantidadeSalvas} fotos salvas com sucesso!`);
-          } else {
-            toast.warning('Algumas fotos não puderam ser salvas.');
-          }
-          
-          // Verificar se houve algum erro no processamento
-          const errosProcessamento = Object.entries(resultadosProcessamento)
-            .filter(([_, resultado]) => !resultado.sucesso)
-            .map(([tipo, resultado]) => `${tipo}: ${resultado.erro}`);
-          
-          if (errosProcessamento.length > 0) {
-            toast.warning(`Problemas em algumas fotos: ${errosProcessamento.join(', ')}`);
-          }
-        } catch (processError) {
-          console.error('Erro no processamento de fotos:', processError);
-          toast.error('Erro ao processar fotos, mas a avaliação foi salva.');
-        } finally {
-          setProcessandoFotos(false);
-          setProgressoFotos(null);
+        // Salvar fotos processadas no Firestore
+        const resultadoSalvar = await salvarFotosAvaliacao(avaliacaoId, resultadosProcessamento);
+        
+        if (resultadoSalvar.sucesso) {
+          toast.success(`✅ ${resultadoSalvar.quantidadeSalvas} fotos salvas com sucesso!`);
+        } else {
+          toast.warning('Algumas fotos não puderam ser salvas.');
         }
+        
+        // Verificar se houve algum erro no processamento
+        const errosProcessamento = Object.entries(resultadosProcessamento)
+          .filter(([_, resultado]) => !resultado.sucesso)
+          .map(([tipo, resultado]) => `${tipo}: ${resultado.erro}`);
+        
+        if (errosProcessamento.length > 0) {
+          toast.warning(`Problemas em algumas fotos: ${errosProcessamento.join(', ')}`);
+        }
+      } catch (processError) {
+        console.error('Erro no processamento de fotos:', processError);
+        toast.error('Erro ao processar fotos, mas a avaliação foi salva.');
+      } finally {
+        setProcessandoFotos(false);
+        setProgressoFotos(null);
       }
       
       toast.success('✅ Avaliação cadastrada com sucesso!');
@@ -229,7 +256,6 @@ export default function NovaAvaliacao() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Nova Avaliação Física</h1>
-            <p className="text-sm text-green-600 mt-1">🎉 Modo Gratuito - Fotos salvas no Firestore</p>
           </div>
           <Link 
             href="/admin/alunos"
@@ -495,126 +521,294 @@ export default function NovaAvaliacao() {
               {/* Circunferências */}
               {activeTab === 'circunferencias' && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-medium text-gray-800">Circunferências (cm)</h3>
+                  <h3 className="text-lg font-medium text-gray-800">Circunferências (cm) - Todos os campos obrigatórios</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label htmlFor="circBraco" className="block text-sm font-medium text-gray-700">
-                        Braço
+                      <label htmlFor="circBracoDireito" className="block text-sm font-medium text-gray-700">
+                        Braço Direito *
                       </label>
                       <div className="mt-1">
                         <input
-                          id="circBraco"
+                          id="circBracoDireito"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circBraco')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circBracoDireito ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circBracoDireito', { 
+                            required: 'Circunferência do braço direito é obrigatória',
+                            min: { value: 10, message: 'Valor deve ser maior que 10cm' },
+                            max: { value: 100, message: 'Valor deve ser menor que 100cm' }
+                          })}
                         />
+                        {errors.circBracoDireito && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circBracoDireito.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
-                      <label htmlFor="circAntebraco" className="block text-sm font-medium text-gray-700">
-                        Antebraço
+                      <label htmlFor="circBracoEsquerdo" className="block text-sm font-medium text-gray-700">
+                        Braço Esquerdo *
                       </label>
                       <div className="mt-1">
                         <input
-                          id="circAntebraco"
+                          id="circBracoEsquerdo"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circAntebraco')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circBracoEsquerdo ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circBracoEsquerdo', { 
+                            required: 'Circunferência do braço esquerdo é obrigatória',
+                            min: { value: 10, message: 'Valor deve ser maior que 10cm' },
+                            max: { value: 100, message: 'Valor deve ser menor que 100cm' }
+                          })}
                         />
+                        {errors.circBracoEsquerdo && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circBracoEsquerdo.message}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="circAntebracoDireito" className="block text-sm font-medium text-gray-700">
+                        Antebraço Direito *
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="circAntebracoDireito"
+                          type="number"
+                          step="0.1"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circAntebracoDireito ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circAntebracoDireito', { 
+                            required: 'Circunferência do antebraço direito é obrigatória',
+                            min: { value: 10, message: 'Valor deve ser maior que 10cm' },
+                            max: { value: 50, message: 'Valor deve ser menor que 50cm' }
+                          })}
+                        />
+                        {errors.circAntebracoDireito && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circAntebracoDireito.message}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="circAntebracoEsquerdo" className="block text-sm font-medium text-gray-700">
+                        Antebraço Esquerdo *
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="circAntebracoEsquerdo"
+                          type="number"
+                          step="0.1"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circAntebracoEsquerdo ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circAntebracoEsquerdo', { 
+                            required: 'Circunferência do antebraço esquerdo é obrigatória',
+                            min: { value: 10, message: 'Valor deve ser maior que 10cm' },
+                            max: { value: 50, message: 'Valor deve ser menor que 50cm' }
+                          })}
+                        />
+                        {errors.circAntebracoEsquerdo && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circAntebracoEsquerdo.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="circTorax" className="block text-sm font-medium text-gray-700">
-                        Tórax
+                        Tórax *
                       </label>
                       <div className="mt-1">
                         <input
                           id="circTorax"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circTorax')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circTorax ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circTorax', { 
+                            required: 'Circunferência do tórax é obrigatória',
+                            min: { value: 40, message: 'Valor deve ser maior que 40cm' },
+                            max: { value: 150, message: 'Valor deve ser menor que 150cm' }
+                          })}
                         />
+                        {errors.circTorax && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circTorax.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="circCintura" className="block text-sm font-medium text-gray-700">
-                        Cintura
+                        Cintura *
                       </label>
                       <div className="mt-1">
                         <input
                           id="circCintura"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circCintura')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circCintura ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circCintura', { 
+                            required: 'Circunferência da cintura é obrigatória',
+                            min: { value: 40, message: 'Valor deve ser maior que 40cm' },
+                            max: { value: 150, message: 'Valor deve ser menor que 150cm' }
+                          })}
                         />
+                        {errors.circCintura && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circCintura.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="circAbdomen" className="block text-sm font-medium text-gray-700">
-                        Abdômen
+                        Abdômen *
                       </label>
                       <div className="mt-1">
                         <input
                           id="circAbdomen"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circAbdomen')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circAbdomen ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circAbdomen', { 
+                            required: 'Circunferência do abdômen é obrigatória',
+                            min: { value: 40, message: 'Valor deve ser maior que 40cm' },
+                            max: { value: 150, message: 'Valor deve ser menor que 150cm' }
+                          })}
                         />
+                        {errors.circAbdomen && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circAbdomen.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="circQuadril" className="block text-sm font-medium text-gray-700">
-                        Quadril
+                        Quadril *
                       </label>
                       <div className="mt-1">
                         <input
                           id="circQuadril"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circQuadril')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circQuadril ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circQuadril', { 
+                            required: 'Circunferência do quadril é obrigatória',
+                            min: { value: 40, message: 'Valor deve ser maior que 40cm' },
+                            max: { value: 150, message: 'Valor deve ser menor que 150cm' }
+                          })}
                         />
+                        {errors.circQuadril && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circQuadril.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
-                      <label htmlFor="circCoxa" className="block text-sm font-medium text-gray-700">
-                        Coxa
+                      <label htmlFor="circCoxaDireita" className="block text-sm font-medium text-gray-700">
+                        Coxa Direita *
                       </label>
                       <div className="mt-1">
                         <input
-                          id="circCoxa"
+                          id="circCoxaDireita"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circCoxa')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circCoxaDireita ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circCoxaDireita', { 
+                            required: 'Circunferência da coxa direita é obrigatória',
+                            min: { value: 20, message: 'Valor deve ser maior que 20cm' },
+                            max: { value: 100, message: 'Valor deve ser menor que 100cm' }
+                          })}
                         />
+                        {errors.circCoxaDireita && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circCoxaDireita.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
-                      <label htmlFor="circPanturrilha" className="block text-sm font-medium text-gray-700">
-                        Panturrilha
+                      <label htmlFor="circCoxaEsquerda" className="block text-sm font-medium text-gray-700">
+                        Coxa Esquerda *
                       </label>
                       <div className="mt-1">
                         <input
-                          id="circPanturrilha"
+                          id="circCoxaEsquerda"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('circPanturrilha')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circCoxaEsquerda ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circCoxaEsquerda', { 
+                            required: 'Circunferência da coxa esquerda é obrigatória',
+                            min: { value: 20, message: 'Valor deve ser maior que 20cm' },
+                            max: { value: 100, message: 'Valor deve ser menor que 100cm' }
+                          })}
                         />
+                        {errors.circCoxaEsquerda && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circCoxaEsquerda.message}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="circPanturrilhaDireita" className="block text-sm font-medium text-gray-700">
+                        Panturrilha Direita *
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="circPanturrilhaDireita"
+                          type="number"
+                          step="0.1"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circPanturrilhaDireita ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circPanturrilhaDireita', { 
+                            required: 'Circunferência da panturrilha direita é obrigatória',
+                            min: { value: 15, message: 'Valor deve ser maior que 15cm' },
+                            max: { value: 60, message: 'Valor deve ser menor que 60cm' }
+                          })}
+                        />
+                        {errors.circPanturrilhaDireita && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circPanturrilhaDireita.message}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="circPanturrilhaEsquerda" className="block text-sm font-medium text-gray-700">
+                        Panturrilha Esquerda *
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          id="circPanturrilhaEsquerda"
+                          type="number"
+                          step="0.1"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.circPanturrilhaEsquerda ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('circPanturrilhaEsquerda', { 
+                            required: 'Circunferência da panturrilha esquerda é obrigatória',
+                            min: { value: 15, message: 'Valor deve ser maior que 15cm' },
+                            max: { value: 60, message: 'Valor deve ser menor que 60cm' }
+                          })}
+                        />
+                        {errors.circPanturrilhaEsquerda && (
+                          <p className="mt-1 text-sm text-red-600">{errors.circPanturrilhaEsquerda.message}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -624,64 +818,103 @@ export default function NovaAvaliacao() {
               {/* Testes Físicos */}
               {activeTab === 'testes' && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-medium text-gray-800">Testes Físicos</h3>
+                  <h3 className="text-lg font-medium text-gray-800">Testes Físicos - Todos os campos obrigatórios</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="testeForcaBraco" className="block text-sm font-medium text-gray-700">
-                        Força de Braço (repetições)
+                        Força de Braço (repetições) *
                       </label>
                       <div className="mt-1">
                         <input
                           id="testeForcaBraco"
                           type="number"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('testeForcaBraco')}
+                          min="0"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.testeForcaBraco ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('testeForcaBraco', { 
+                            required: 'Teste de força de braço é obrigatório',
+                            min: { value: 0, message: 'Valor deve ser maior ou igual a 0' },
+                            max: { value: 200, message: 'Valor deve ser menor que 200' }
+                          })}
                         />
+                        {errors.testeForcaBraco && (
+                          <p className="mt-1 text-sm text-red-600">{errors.testeForcaBraco.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="testeResistencia" className="block text-sm font-medium text-gray-700">
-                        Resistência Abdominal (repetições)
+                        Resistência Abdominal (repetições) *
                       </label>
                       <div className="mt-1">
                         <input
                           id="testeResistencia"
                           type="number"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('testeResistencia')}
+                          min="0"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.testeResistencia ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('testeResistencia', { 
+                            required: 'Teste de resistência abdominal é obrigatório',
+                            min: { value: 0, message: 'Valor deve ser maior ou igual a 0' },
+                            max: { value: 300, message: 'Valor deve ser menor que 300' }
+                          })}
                         />
+                        {errors.testeResistencia && (
+                          <p className="mt-1 text-sm text-red-600">{errors.testeResistencia.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="testeFlexibilidade" className="block text-sm font-medium text-gray-700">
-                        Flexibilidade (cm)
+                        Flexibilidade (cm) *
                       </label>
                       <div className="mt-1">
                         <input
                           id="testeFlexibilidade"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('testeFlexibilidade')}
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.testeFlexibilidade ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('testeFlexibilidade', { 
+                            required: 'Teste de flexibilidade é obrigatório',
+                            min: { value: -20, message: 'Valor deve ser maior que -20cm' },
+                            max: { value: 60, message: 'Valor deve ser menor que 60cm' }
+                          })}
                         />
+                        {errors.testeFlexibilidade && (
+                          <p className="mt-1 text-sm text-red-600">{errors.testeFlexibilidade.message}</p>
+                        )}
                       </div>
                     </div>
                     
                     <div>
                       <label htmlFor="testeVO2max" className="block text-sm font-medium text-gray-700">
-                        VO2 Máximo (ml/kg/min)
+                        VO2 Máximo (ml/kg/min) *
                       </label>
                       <div className="mt-1">
                         <input
                           id="testeVO2max"
                           type="number"
                           step="0.1"
-                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          {...register('testeVO2max')}
+                          min="0"
+                          className={`appearance-none block w-full px-3 py-2 border ${
+                            errors.testeVO2max ? 'border-red-300' : 'border-gray-300'
+                          } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                          {...register('testeVO2max', { 
+                            required: 'Teste de VO2 máximo é obrigatório',
+                            min: { value: 10, message: 'Valor deve ser maior que 10 ml/kg/min' },
+                            max: { value: 100, message: 'Valor deve ser menor que 100 ml/kg/min' }
+                          })}
                         />
+                        {errors.testeVO2max && (
+                          <p className="mt-1 text-sm text-red-600">{errors.testeVO2max.message}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -691,6 +924,8 @@ export default function NovaAvaliacao() {
               {/* Nova aba de Fotos */}
               {activeTab === 'fotos' && (
                 <div className="space-y-6">
+                  <h3 className="text-lg font-medium text-gray-800">Fotos da Avaliação - Obrigatórias</h3>
+                  
                   {/* Informações do modo gratuito */}
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between">

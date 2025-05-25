@@ -19,18 +19,11 @@ export default function AdminAvaliacoes() {
   const [error, setError] = useState(null);
   const PAGE_SIZE = 10;
 
-  // Função para log de depuração
-  const logDebug = (message, data = null) => {
-    console.log(`[DEBUG] ${message}`, data ? data : '');
-  };
-
-  // Carregar alunos para o dropdown de filtro
   useEffect(() => {
     const fetchAlunos = async () => {
       if (!currentUser) return;
       
       try {
-        logDebug('Buscando alunos para o filtro');
         const alunosQuery = query(
           collection(db, 'usuarios'),
           where('tipo', '==', 'aluno'),
@@ -43,7 +36,6 @@ export default function AdminAvaliacoes() {
           ...doc.data()
         }));
         
-        logDebug(`Encontrados ${alunosData.length} alunos para o filtro`);
         setAlunos(alunosData);
       } catch (error) {
         console.error('Erro ao buscar alunos:', error);
@@ -65,16 +57,12 @@ export default function AdminAvaliacoes() {
         setLoadingMore(true);
       }
       
-      // Construir a consulta base
-      logDebug('Iniciando busca de avaliações', { reset, alunoFilter, periodo });
       let conditions = [];
       
-      // Filtro por aluno
       if (alunoFilter) {
         conditions.push(where('alunoId', '==', alunoFilter));
       }
       
-      // Filtro por período
       if (periodo !== 'todas') {
         const now = new Date();
         let startDate;
@@ -90,10 +78,8 @@ export default function AdminAvaliacoes() {
         conditions.push(where('dataAvaliacao', '>=', startDate));
       }
       
-      // Ordenação
       conditions.push(orderBy('dataAvaliacao', 'desc'));
       
-      // Paginação
       if (!reset && lastVisible) {
         conditions.push(startAfter(lastVisible));
       }
@@ -102,10 +88,8 @@ export default function AdminAvaliacoes() {
       
       // Executar a consulta
       const avaliacoesQuery = query(collection(db, 'avaliacoes'), ...conditions);
-      logDebug('Consulta Firestore construída', { conditions: conditions.length });
       
       const avaliacoesSnapshot = await getDocs(avaliacoesQuery);
-      logDebug(`Encontradas ${avaliacoesSnapshot.size} avaliações`);
       
       // Verificar se tem mais resultados
       setHasMore(avaliacoesSnapshot.size === PAGE_SIZE);
@@ -123,7 +107,6 @@ export default function AdminAvaliacoes() {
         ...doc.data()
       }));
       
-      logDebug('Processando avaliações para buscar nomes de alunos');
       
       // Para cada avaliação, buscar o nome do aluno se necessário
       const avaliacoesPromises = avaliacoesData.map(async (avaliacao) => {
@@ -134,7 +117,6 @@ export default function AdminAvaliacoes() {
             
             if (alunoDoc.exists()) {
               avaliacao.alunoNome = alunoDoc.data().nome;
-              logDebug(`Nome do aluno encontrado para ${avaliacao.id}: ${avaliacao.alunoNome}`);
             } else {
               // Tentar buscar por uid
               const alunosQuery = query(
@@ -146,9 +128,7 @@ export default function AdminAvaliacoes() {
               
               if (!alunosSnapshot.empty) {
                 avaliacao.alunoNome = alunosSnapshot.docs[0].data().nome;
-                logDebug(`Nome do aluno encontrado via uid para ${avaliacao.id}: ${avaliacao.alunoNome}`);
               } else {
-                logDebug(`Aluno não encontrado para avaliação ${avaliacao.id}`);
               }
             }
           } catch (error) {
@@ -159,7 +139,6 @@ export default function AdminAvaliacoes() {
       });
       
       avaliacoesData = await Promise.all(avaliacoesPromises);
-      logDebug(`Processamento concluído: ${avaliacoesData.length} avaliações`);
       
       if (reset) {
         setAvaliacoes(avaliacoesData);

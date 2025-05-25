@@ -28,18 +28,10 @@ const requiredEnvVars = [
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingVars.length > 0) {
-  console.error('❌ Variáveis de ambiente do Firebase não configuradas:', missingVars);
-  console.error('📄 Consulte o arquivo FIREBASE_SETUP.md para instruções de configuração');
-  console.error('🔧 Crie o arquivo .env.local na raiz do projeto com as seguintes variáveis:');
-  missingVars.forEach(varName => {
-    console.error(`   ${varName}=sua-configuracao-aqui`);
-  });
+  // Variáveis faltando - falha silenciosa em produção
 }
 
-// Verificar se a API key parece válida
-if (firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('AIza')) {
-  console.error('⚠️ API Key do Firebase parece inválida. Deve começar com "AIza"');
-}
+
 
 // Inicializar Firebase apenas uma vez
 let firebaseApp;
@@ -47,22 +39,10 @@ let firebaseApp;
 try {
   if (!getApps().length) {
     firebaseApp = initializeApp(firebaseConfig);
-    console.log('✅ Firebase inicializado com sucesso');
   } else {
     firebaseApp = getApps()[0];
   }
 } catch (error) {
-  console.error('❌ Erro ao inicializar Firebase:', error);
-  
-  if (error.code === 'auth/invalid-api-key') {
-    console.error('🔑 PROBLEMA: API Key inválida');
-    console.error('💡 SOLUÇÕES:');
-    console.error('   1. Acesse o Firebase Console');
-    console.error('   2. Vá em Configurações > Geral > Apps');
-    console.error('   3. Copie a configuração correta');
-    console.error('   4. Atualize o arquivo .env.local');
-  }
-  
   throw new Error('Falha na configuração do Firebase. Verifique suas variáveis de ambiente.');
 }
 
@@ -74,8 +54,6 @@ try {
   db = getFirestore(firebaseApp);
   storage = getStorage(firebaseApp);
 } catch (error) {
-  console.error('❌ Erro ao inicializar serviços do Firebase:', error);
-  
   // Criar objetos mock para desenvolvimento
   auth = null;
   db = null;

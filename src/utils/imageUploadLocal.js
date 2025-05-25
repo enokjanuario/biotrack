@@ -20,7 +20,7 @@ export const validarImagem = (file) => {
   }
 
   if (file.size > tamanhoMaximo) {
-    return { valido: false, erro: 'Arquivo muito grande. Máximo 2MB para modo gratuito.' };
+    return { valido: false, erro: 'Arquivo muito grande. Máximo 2MB.' };
   }
 
   return { valido: true };
@@ -80,15 +80,11 @@ export const processarImagem = async (file, tipoFoto) => {
       throw new Error(validacao.erro);
     }
 
-    console.log('Processando imagem:', { tipoFoto, fileSize: file.size });
-
     // Redimensionar para otimizar
     const imagemOtimizada = await redimensionarImagem(file);
     
     // Converter para base64
     const base64 = await imagemParaBase64(imagemOtimizada);
-    
-    console.log('Imagem processada:', { tipoFoto, base64Size: base64.length });
     
     return {
       sucesso: true,
@@ -98,7 +94,6 @@ export const processarImagem = async (file, tipoFoto) => {
       tamanhoOtimizado: base64.length
     };
   } catch (error) {
-    console.error('Erro no processamento:', error);
     return {
       sucesso: false,
       erro: error.message || 'Erro desconhecido no processamento'
@@ -112,8 +107,6 @@ export const processarMultiplasImagens = async (arquivos, onProgress) => {
   const total = Object.keys(arquivos).length;
   let processados = 0;
 
-  console.log('Processando múltiplas imagens:', { total });
-
   for (const [tipo, file] of Object.entries(arquivos)) {
     if (file) {
       try {
@@ -125,9 +118,7 @@ export const processarMultiplasImagens = async (arquivos, onProgress) => {
           onProgress({ processados, total, tipo, resultado });
         }
         
-        console.log(`Processamento ${processados}/${total} concluído:`, tipo, resultado.sucesso ? 'OK' : 'ERRO');
       } catch (error) {
-        console.error(`Erro no processamento de ${tipo}:`, error);
         resultados[tipo] = { sucesso: false, erro: error.message };
         processados++;
         if (onProgress) {
@@ -137,7 +128,6 @@ export const processarMultiplasImagens = async (arquivos, onProgress) => {
     }
   }
 
-  console.log('Processamento múltiplo finalizado:', resultados);
   return resultados;
 };
 
@@ -162,13 +152,11 @@ export const salvarFotosAvaliacao = async (avaliacaoId, resultadosProcessamento)
       const avaliacaoRef = doc(db, 'avaliacoes', avaliacaoId);
       await updateDoc(avaliacaoRef, { fotos });
       
-      console.log('Fotos salvas no Firestore:', Object.keys(fotos));
       return { sucesso: true, quantidadeSalvas: Object.keys(fotos).length };
     } else {
       return { sucesso: false, erro: 'Nenhuma foto válida para salvar' };
     }
   } catch (error) {
-    console.error('Erro ao salvar fotos:', error);
     return { sucesso: false, erro: error.message };
   }
 };

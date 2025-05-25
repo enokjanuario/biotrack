@@ -135,7 +135,6 @@ export default function NovoAluno() {
       }, 2000);
       
     } catch (error) {
-      console.error('Erro ao cadastrar aluno:', error);
       let errorMessage = 'Falha ao cadastrar aluno. Tente novamente.';
       
       if (error.code === 'auth/email-already-in-use') {
@@ -260,7 +259,7 @@ export default function NovoAluno() {
                 
                 <div>
                   <label htmlFor="telefone" className="block text-sm font-medium text-gray-700">
-                    Telefone
+                    Telefone *
                   </label>
                   <div className="mt-1">
                     <input
@@ -271,7 +270,13 @@ export default function NovoAluno() {
                       className={`appearance-none block w-full px-3 py-2 border ${
                         errors.telefone ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      {...register('telefone')}
+                      {...register('telefone', { 
+                        required: 'Telefone é obrigatório',
+                        pattern: {
+                          value: /^[\(]?[1-9]{2}[\)]?[\s]?[0-9]{4,5}[\-]?[0-9]{4}$/,
+                          message: 'Formato de telefone inválido'
+                        }
+                      })}
                     />
                     {errors.telefone && (
                       <p className="mt-2 text-sm text-red-600">{errors.telefone.message}</p>
@@ -281,7 +286,7 @@ export default function NovoAluno() {
                 
                 <div>
                   <label htmlFor="dataNascimento" className="block text-sm font-medium text-gray-700">
-                    Data de nascimento
+                    Data de nascimento *
                   </label>
                   <div className="mt-1">
                     <input
@@ -290,7 +295,17 @@ export default function NovoAluno() {
                       className={`appearance-none block w-full px-3 py-2 border ${
                         errors.dataNascimento ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      {...register('dataNascimento')}
+                      {...register('dataNascimento', { 
+                        required: 'Data de nascimento é obrigatória',
+                        validate: {
+                          validDate: value => {
+                            const date = new Date(value);
+                            const today = new Date();
+                            const age = today.getFullYear() - date.getFullYear();
+                            return age >= 10 && age <= 100 || 'Idade deve estar entre 10 e 100 anos';
+                          }
+                        }
+                      })}
                     />
                     {errors.dataNascimento && (
                       <p className="mt-2 text-sm text-red-600">{errors.dataNascimento.message}</p>
@@ -300,7 +315,7 @@ export default function NovoAluno() {
                 
                 <div>
                   <label htmlFor="sexo" className="block text-sm font-medium text-gray-700">
-                    Sexo
+                    Sexo *
                   </label>
                   <div className="mt-1">
                     <select
@@ -308,7 +323,9 @@ export default function NovoAluno() {
                       className={`appearance-none block w-full px-3 py-2 border ${
                         errors.sexo ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      {...register('sexo')}
+                      {...register('sexo', { 
+                        required: 'Sexo é obrigatório' 
+                      })}
                     >
                       <option value="">Selecione</option>
                       <option value="M">Masculino</option>
@@ -322,7 +339,7 @@ export default function NovoAluno() {
                 
                 <div>
                   <label htmlFor="altura" className="block text-sm font-medium text-gray-700">
-                    Altura (cm)
+                    Altura (cm) *
                   </label>
                   <div className="mt-1">
                     <input
@@ -335,6 +352,7 @@ export default function NovoAluno() {
                         errors.altura ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('altura', {
+                        required: 'Altura é obrigatória',
                         min: {
                           value: 50,
                           message: 'Altura deve ser maior que 50cm'
@@ -353,7 +371,7 @@ export default function NovoAluno() {
                 
                 <div>
                   <label htmlFor="objetivo" className="block text-sm font-medium text-gray-700">
-                    Objetivo
+                    Objetivo *
                   </label>
                   <div className="mt-1">
                     <select
@@ -361,7 +379,9 @@ export default function NovoAluno() {
                       className={`appearance-none block w-full px-3 py-2 border ${
                         errors.objetivo ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      {...register('objetivo')}
+                      {...register('objetivo', { 
+                        required: 'Objetivo é obrigatório' 
+                      })}
                     >
                       <option value="">Selecione</option>
                       <option value="Emagrecimento">Emagrecimento</option>
@@ -379,16 +399,23 @@ export default function NovoAluno() {
                 
                 <div className="md:col-span-2">
                   <label htmlFor="endereco" className="block text-sm font-medium text-gray-700">
-                    Endereço
+                    Endereço *
                   </label>
                   <div className="mt-1">
                     <input
                       id="endereco"
                       type="text"
+                      placeholder="Rua, número, bairro, cidade - UF"
                       className={`appearance-none block w-full px-3 py-2 border ${
                         errors.endereco ? 'border-red-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      {...register('endereco')}
+                      {...register('endereco', { 
+                        required: 'Endereço é obrigatório',
+                        minLength: {
+                          value: 10,
+                          message: 'Endereço deve ter pelo menos 10 caracteres'
+                        }
+                      })}
                     />
                     {errors.endereco && (
                       <p className="mt-2 text-sm text-red-600">{errors.endereco.message}</p>

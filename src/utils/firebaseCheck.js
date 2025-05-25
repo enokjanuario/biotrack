@@ -75,45 +75,20 @@ export const testarStorage = async () => {
   }
 };
 
-// Exibir relatório de configuração
-export const exibirRelatorio = async () => {
-  console.log('🔍 VERIFICANDO CONFIGURAÇÃO DO FIREBASE STORAGE...\n');
-  
+// Obter relatório de configuração
+export const obterRelatorio = async () => {
   const config = verificarConfiguracao();
   const teste = await testarStorage();
 
-  console.log('📊 RESULTADOS:');
-  console.log(`✅ Storage Inicializado: ${config.storageInicializado ? 'SIM' : 'NÃO'}`);
-  console.log(`✅ Bucket Correto: ${config.bucketCorreto ? 'SIM' : 'NÃO'}`);
-  console.log(`✅ Teste de Conexão: ${teste.sucesso ? 'OK' : 'ERRO'}`);
-  
-  if (teste.sucesso) {
-    console.log(`📦 Bucket: ${teste.bucket}`);
-    console.log(`🏗️ Projeto: ${teste.projeto}`);
-  }
-
-  if (config.problemas.length > 0) {
-    console.log('\n❌ PROBLEMAS ENCONTRADOS:');
-    config.problemas.forEach((problema, i) => {
-      console.log(`${i + 1}. ${problema}`);
-    });
-
-    console.log('\n💡 SOLUÇÕES:');
-    config.solucoes.forEach((solucao, i) => {
-      console.log(`${i + 1}. ${solucao}`);
-    });
-  }
-
-  if (!teste.sucesso) {
-    console.log(`\n🚨 ERRO DE CONEXÃO: ${teste.erro}`);
-    
-    if (teste.codigo === 'storage/unknown') {
-      console.log('\n🔧 SOLUÇÃO:');
-      console.log('1. Acesse: https://console.firebase.google.com/project/avaliacaofisicaapp/storage');
-      console.log('2. Clique em "Get Started" para ativar o Storage');
-      console.log('3. Execute: firebase deploy --only storage');
+  return { 
+    config, 
+    teste,
+    resumo: {
+      storageInicializado: config.storageInicializado,
+      bucketCorreto: config.bucketCorreto,
+      conexaoOk: teste.sucesso,
+      problemas: config.problemas,
+      solucoes: config.solucoes
     }
-  }
-
-  return { config, teste };
+  };
 }; 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, query, getDocs, where, orderBy, startAfter, limit } from 'firebase/firestore';
+import { collection, query, getDocs, where, orderBy, startAfter, limit, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/layout/Layout';
@@ -15,12 +15,10 @@ export default function AdminAlunos() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const [modalExcluir, setModalExcluir] = useState(false);
+  const [alunoParaExcluir, setAlunoParaExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
   const PAGE_SIZE = 10;
-
-  // Função para log de depuração
-  const logDebug = (message, data = null) => {
-    console.log(`[DEBUG] ${message}`, data ? data : '');
-  };
 
   const fetchAlunos = async (reset = false) => {
     if (!currentUser?.uid) return;
@@ -33,8 +31,6 @@ export default function AdminAlunos() {
         setLoadingMore(true);
       }
       
-      logDebug('Iniciando busca de alunos', { reset, searchTerm });
-      
       let alunosQuery;
       
       if (reset || !lastVisible) {
@@ -45,7 +41,6 @@ export default function AdminAlunos() {
           orderBy('nome'),
           limit(PAGE_SIZE)
         );
-        logDebug('Consulta inicial construída');
       } else {
         // Consultas subsequentes (paginação)
         alunosQuery = query(
@@ -55,11 +50,9 @@ export default function AdminAlunos() {
           startAfter(lastVisible),
           limit(PAGE_SIZE)
         );
-        logDebug('Consulta de paginação construída');
       }
       
       const alunosSnapshot = await getDocs(alunosQuery);
-      logDebug(`Encontrados ${alunosSnapshot.size} alunos`);
       
       // Verificar se tem mais resultados
       setHasMore(alunosSnapshot.size === PAGE_SIZE);
@@ -72,7 +65,6 @@ export default function AdminAlunos() {
       }
       
       const alunosData = alunosSnapshot.docs.map(doc => {
-        logDebug(`Processando aluno ${doc.id}`);
         return {
           id: doc.id,
           ...doc.data()
@@ -87,7 +79,6 @@ export default function AdminAlunos() {
       
       setError(null); // Limpar erro se a consulta for bem-sucedida
     } catch (error) {
-      console.error('Erro ao buscar alunos:', error);
       setError('Falha ao carregar alunos: ' + error.message);
     } finally {
       setLoading(false);
@@ -128,12 +119,9 @@ export default function AdminAlunos() {
       
       // Se o termo de busca estiver vazio, retorna à listagem normal
       if (!searchValue.trim()) {
-        logDebug('Termo de busca vazio, retornando à listagem normal');
         fetchAlunos(true);
         return;
       }
-      
-      logDebug(`Buscando alunos com termo: "${searchValue}"`);
       
       // Convertendo o termo para minúsculas para busca case-insensitive
       const searchLower = searchValue.toLowerCase();
@@ -148,7 +136,6 @@ export default function AdminAlunos() {
           orderBy('nome')
         )
       );
-      logDebug(`Encontrados ${alunosNomeSnapshot.size} alunos pelo nome`);
       
       // Segunda busca por nome com primeira letra maiúscula para melhor cobertura
       const searchCapitalized = searchValue.charAt(0).toUpperCase() + searchValue.slice(1).toLowerCase();
@@ -161,7 +148,6 @@ export default function AdminAlunos() {
           orderBy('nome')
         )
       );
-      logDebug(`Encontrados ${alunosNomeCapSnapshot.size} alunos pelo nome capitalizado`);
       
       // Terceira busca por nome em minúsculas para completar a cobertura
       const alunosNomeLowerSnapshot = await getDocs(
@@ -173,7 +159,6 @@ export default function AdminAlunos() {
           orderBy('nome')
         )
       );
-      logDebug(`Encontrados ${alunosNomeLowerSnapshot.size} alunos pelo nome em minúsculas`);
       
       // Busca por email (sempre em minúsculas)
       const alunosEmailSnapshot = await getDocs(
@@ -185,7 +170,6 @@ export default function AdminAlunos() {
           orderBy('email')
         )
       );
-      logDebug(`Encontrados ${alunosEmailSnapshot.size} alunos pelo email`);
       
       // Combinando resultados sem duplicatas
       const alunosMap = new Map();
@@ -239,7 +223,6 @@ export default function AdminAlunos() {
       });
       
       const alunosData = Array.from(alunosMap.values());
-      logDebug(`Total de alunos encontrados (sem duplicatas): ${alunosData.length}`);
       
       // Ordenar por nome
       alunosData.sort((a, b) => a.nome?.localeCompare(b.nome));
@@ -249,10 +232,39 @@ export default function AdminAlunos() {
       setLastVisible(null);
       setError(null); // Limpar erro se a consulta for bem-sucedida
     } catch (error) {
-      console.error('Erro ao buscar alunos:', error);
       setError('Falha ao buscar alunos: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para confirmar exclusão
+  const confirmarExclusao = (aluno) => {
+    setAlunoParaExcluir(aluno);
+    setModalExcluir(true);
+  };
+
+  // Função para excluir aluno
+  const excluirAluno = async () => {
+    if (!alunoParaExcluir) return;
+
+    try {
+      setExcluindo(true);
+      
+      // Deletar o usuário da coleção usuarios
+      await deleteDoc(doc(db, 'usuarios', alunoParaExcluir.id));
+      
+      // Remover da lista local
+      setAlunos(prev => prev.filter(aluno => aluno.id !== alunoParaExcluir.id));
+      
+      // Fechar modal
+      setModalExcluir(false);
+      setAlunoParaExcluir(null);
+      
+    } catch (error) {
+      setError('Erro ao excluir aluno: ' + error.message);
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -266,6 +278,53 @@ export default function AdminAlunos() {
       }
     }
   }, [currentUser, searchTerm, debouncedSearch]);
+
+  // Modal de confirmação de exclusão
+  const ModalConfirmacao = () => {
+    if (!modalExcluir || !alunoParaExcluir) return null;
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="mt-3 text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mt-4">Confirmar Exclusão</h3>
+            <div className="mt-2 px-7 py-3">
+              <p className="text-sm text-gray-500">
+                Tem certeza que deseja excluir o aluno <strong>{alunoParaExcluir.nome}</strong>?
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                Esta ação não pode ser desfeita. Todas as avaliações e dados do aluno serão mantidos, mas ele não aparecerá mais na lista.
+              </p>
+            </div>
+            <div className="items-center px-4 py-3 flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  setModalExcluir(false);
+                  setAlunoParaExcluir(null);
+                }}
+                className="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                disabled={excluindo}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={excluirAluno}
+                disabled={excluindo}
+                className="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
+              >
+                {excluindo ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Layout>
@@ -375,14 +434,14 @@ export default function AdminAlunos() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Data de Cadastro
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {alunos.map((aluno) => (
-                      <tr key={aluno.id}>
+                      <tr key={aluno.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {aluno.nome || '-'}
                         </td>
@@ -395,36 +454,51 @@ export default function AdminAlunos() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {aluno.createdAt?.toDate ? formatDate(aluno.createdAt.toDate()) : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-3">
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            {/* Ver Perfil */}
                             <Link 
                               href={`/admin/alunos/${aluno.id}`}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-full transition-colors"
                               title="Ver perfil completo"
                             >
-                              Ver Perfil
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
                             </Link>
+
+                            {/* Nova Avaliação */}
                             <Link 
                               href={`/admin/avaliacoes/nova?alunoId=${aluno.id}`}
-                              className="text-green-600 hover:text-green-900"
+                              className="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-full transition-colors"
                               title="Registrar nova avaliação"
                             >
-                              Nova Avaliação
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
                             </Link>
+
+                            {/* Evolução */}
                             <Link 
                               href={`/admin/alunos/${aluno.id}/evolucao`}
-                              className="text-purple-600 hover:text-purple-900"
-                              title="Ver evolução simples"
+                              className="p-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded-full transition-colors"
+                              title="Ver evolução e análise"
                             >
-                              Evolução
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
                             </Link>
-                            <Link 
-                              href={`/admin/alunos/${aluno.id}/evolucao-avancada`}
-                              className="text-indigo-600 hover:text-indigo-900"
-                              title="Ver análise avançada"
+
+                            {/* Excluir */}
+                            <button
+                              onClick={() => confirmarExclusao(aluno)}
+                              className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
+                              title="Excluir aluno"
                             >
-                              Análise Avançada
-                            </Link>
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -459,6 +533,9 @@ export default function AdminAlunos() {
             </>
           )}
         </div>
+
+        {/* Modal de Confirmação */}
+        <ModalConfirmacao />
       </div>
     </Layout>
   );
