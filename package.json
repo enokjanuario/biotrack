@@ -8,7 +8,6 @@
         "start": "next start",
         "lint": "next lint",
         "setup": "npm install && npm run build",
-        "prepare-deploy": "node scripts/prepare-deploy.js",
         "deploy-check": "npm run lint && npm run build"
     },
     "engines": {
@@ -16,7 +15,6 @@
         "npm": ">=8.0.0"
     },
     "dependencies": {
-        "@firebasegen/default-connector": "file:dataconnect-generated/js/default-connector",
         "@heroicons/react": "^2.2.0",
         "chart.js": "^4.4.0",
         "firebase": "^11.3.0",

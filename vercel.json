@@ -1,23 +1,21 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "env": {
-    "NODE_VERSION": "18"
-  },
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
   "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm ci",
+  "env": {
+    "NODE_VERSION": "18",
+    "NPM_CONFIG_FUND": "false",
+    "NPM_CONFIG_AUDIT": "false"
+  },
   "functions": {
     "src/pages/api/**/*.js": {
-      "memory": 1024
+      "memory": 1024,
+      "maxDuration": 30
     }
   },
+  "regions": ["iad1"],
   "headers": [
     {
       "source": "/(.*)",
@@ -33,14 +31,12 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "origin-when-cross-origin"
         }
       ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/admin/:path*",
-      "destination": "/admin/:path*"
     }
   ]
 } 

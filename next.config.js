@@ -3,9 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
-  // Configurações para deployment
+  // Configurações de build para evitar problemas de permissão
   experimental: {
-    appDir: false, // Usando Pages Router
+    outputFileTracingRoot: undefined,
   },
   
   // Configurações de imagem para Firebase Storage
@@ -42,9 +42,6 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   
-  // Configurações de output para Vercel
-  output: 'standalone',
-  
   // Headers de segurança
   async headers() {
     return [
@@ -79,11 +76,14 @@ const nextConfig = {
     ];
   },
   
-  // Webpack custom config
-  webpack: (config, { dev, isServer }) => {
-    // Otimizações para production
+  // Webpack custom config simplificado
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Evitar problemas de build
     if (!dev && !isServer) {
-      config.optimization.splitChunks.chunks = 'all';
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
     }
     
     return config;
