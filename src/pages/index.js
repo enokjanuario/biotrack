@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -8,12 +9,35 @@ import Head from 'next/head';
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
-  const { login } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { login, currentUser, userType, loading } = useAuth();
+  const [loginLoading, setLoginLoading] = useState(false);
+  const router = useRouter();
+
+  // Verificar se o usuário já está logado e redirecioná-lo
+  useEffect(() => {
+    if (!loading && currentUser && userType) {
+      const redirectPath = userType === 'admin' ? '/admin/dashboard' : '/aluno/dashboard';
+      router.replace(redirectPath);
+    }
+  }, [currentUser, userType, loading, router]);
+
+  // Se ainda está carregando ou usuário já está logado, mostra um loading
+  if (loading || (currentUser && userType)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {loading ? 'Carregando...' : 'Redirecionando...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const onSubmit = async (data) => {
     try {
-      setLoading(true);
+      setLoginLoading(true);
       await login(data.email, data.password);
       // O redirecionamento é feito no AuthContext
     } catch (error) {
@@ -28,7 +52,7 @@ export default function Login() {
       
       toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
 
@@ -171,13 +195,13 @@ export default function Login() {
               <div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loginLoading}
                   className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out ${
-                    loading ? 'opacity-70 cursor-not-allowed' : ''
+                    loginLoading ? 'opacity-70 cursor-not-allowed' : ''
                   }`}
                   aria-label="Fazer login"
                 >
-                  {loading ? (
+                  {loginLoading ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

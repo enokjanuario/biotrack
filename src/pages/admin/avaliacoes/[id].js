@@ -219,36 +219,16 @@ export default function DetalhesAvaliacao() {
                 </Link>
                 <Link 
                   href={`/admin/avaliacoes/nova?alunoId=${avaliacao.alunoId}`}
-                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700"
+                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Nova Avaliação
                 </Link>
-                {!confirmDelete ? (
-                  <button 
-                    onClick={() => setConfirmDelete(true)}
-                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
-                  >
-                    Excluir
-                  </button>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 ${
-                        deleting ? 'opacity-70 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      {deleting ? 'Excluindo...' : 'Confirmar'}
-                    </button>
-                    <button 
-                      onClick={() => setConfirmDelete(false)}
-                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
+                <button 
+                  onClick={handleDeleteClick}
+                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
+                >
+                  Excluir
+                </button>
               </>
             )}
           </div>
@@ -526,6 +506,18 @@ export default function DetalhesAvaliacao() {
           </div>
         </div>
       </div>
+      
+      {/* Modal de confirmação de exclusão */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Excluir Avaliação"
+        message={`Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        isLoading={deleting}
+      />
+      
       <ToastContainer position="top-right" autoClose={5000} />
     </Layout>
   );

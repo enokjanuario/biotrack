@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
@@ -8,15 +8,37 @@ import 'react-toastify/dist/ReactToastify.css';
 
 export default function Cadastro() {
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
-  const { registerAluno } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { registerAluno, currentUser, userType, loading } = useAuth();
+  const [registerLoading, setRegisterLoading] = useState(false);
   const router = useRouter();
   
   const password = watch('password');
 
+  // Verificar se o usuário já está logado e redirecioná-lo
+  useEffect(() => {
+    if (!loading && currentUser && userType) {
+      const redirectPath = userType === 'admin' ? '/admin/dashboard' : '/aluno/dashboard';
+      router.replace(redirectPath);
+    }
+  }, [currentUser, userType, loading, router]);
+
+  // Se ainda está carregando ou usuário já está logado, mostra um loading
+  if (loading || (currentUser && userType)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {loading ? 'Carregando...' : 'Redirecionando...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const onSubmit = async (data) => {
     try {
-      setLoading(true);
+      setRegisterLoading(true);
       await registerAluno(data.cpf, data.email, data.password);
       toast.success('Cadastro realizado com sucesso!');
       // Aguarda um pouco para redirecionar
@@ -37,7 +59,7 @@ export default function Cadastro() {
       
       toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setRegisterLoading(false);
     }
   };
 
@@ -252,12 +274,12 @@ export default function Cadastro() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={registerLoading}
                 className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                  loading ? 'opacity-70 cursor-not-allowed' : ''
+                  registerLoading ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
               >
-                {loading ? 'Cadastrando...' : 'Cadastrar'}
+                {registerLoading ? 'Cadastrando...' : 'Cadastrar'}
               </button>
             </div>
           </form>
