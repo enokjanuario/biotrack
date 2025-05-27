@@ -122,7 +122,7 @@ const FotoUpload = ({ fotos = {}, onFotosChange, disabled = false }) => {
                   type="button"
                   onClick={() => handleRemoveFoto(tipo)}
                   disabled={disabled}
-                  className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                  className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3M4 7h16" />
@@ -181,7 +181,7 @@ const FotoUpload = ({ fotos = {}, onFotosChange, disabled = false }) => {
 
             {/* Erro */}
             {erro && (
-              <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
+              <div className="mt-2 text-sm text-blue-600 flex items-center gap-1">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -197,7 +197,6 @@ const FotoUpload = ({ fotos = {}, onFotosChange, disabled = false }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">Fotos da Avaliação (Modo Gratuito)</h3>
         <span className="text-sm text-gray-500">
           {Object.keys(fotos).length}/4 fotos
         </span>
@@ -214,7 +213,6 @@ const FotoUpload = ({ fotos = {}, onFotosChange, disabled = false }) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <h4 className="text-sm font-medium text-green-800">💚 Modo Gratuito - Firestore</h4>
             <ul className="mt-1 text-sm text-green-700 space-y-1">
               <li>• Máximo 2MB por foto (otimização automática)</li>
               <li>• Fotos são redimensionadas para web (800x1000px)</li>

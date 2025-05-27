@@ -116,7 +116,7 @@ export default function Sidebar({ isOpen, isCollapsed, userType, toggleSidebar }
           {!isCollapsed && (
             <div className="flex items-center mb-6 md:mb-8">
               <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <span className="font-semibold text-blue-600">{userInitial}</span>
+                <span className="font-semibold text-primary-600">{userInitial}</span>
               </div>
               <div className="ml-3 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{userName || 'Usuário'}</p>
@@ -132,7 +132,7 @@ export default function Sidebar({ isOpen, isCollapsed, userType, toggleSidebar }
             <div className="hidden md:flex justify-center mb-6">
               <Tooltip content={`${userName || 'Usuário'} (${userType === 'admin' ? 'Admin' : 'Aluno'})`}>
                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <span className="font-semibold text-blue-600">{userInitial}</span>
+                  <span className="font-semibold text-primary-600">{userInitial}</span>
                 </div>
               </Tooltip>
             </div>
@@ -150,13 +150,13 @@ export default function Sidebar({ isOpen, isCollapsed, userType, toggleSidebar }
                   className={`
                     group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150 ease-in-out
                     ${isActive
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                      ? 'bg-blue-50 text-primary-700 border-r-2 border-primary-500'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-primary-600'
                     }
                     ${isCollapsed ? 'md:justify-center md:px-2' : ''}
                   `.trim()}
                 >
-                                    <span className={`                    flex-shrink-0 transition-colors nav-icon                    ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'}                  `}>                    {link.icon}                  </span>
+                                    <span className={`                    flex-shrink-0 transition-colors nav-icon                    ${isActive ? 'text-primary-500' : 'text-gray-400 group-hover:text-primary-500'}                  `}>                    {link.icon}                  </span>
                   
                   {/* Label - oculto quando colapsado em desktop */}
                   <span className={`

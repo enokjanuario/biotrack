@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 
 // Importação dinâmica para evitar problemas de SSR
 const LineChart = dynamic(() => import('../../../../components/layout/charts/LineChart'), { ssr: false });
+const CircunferenciasChart = dynamic(() => import('../../../../components/layout/charts/CircunferenciasChart'), { ssr: false });
 
 export default function RelatorioAluno() {
   const router = useRouter();
@@ -127,7 +128,7 @@ export default function RelatorioAluno() {
 
   // Preparar dados para gráficos
   const prepararDadosGraficos = () => {
-    if (avaliacoes.length === 0) return { peso: null, gordura: null, imc: null };
+    if (avaliacoes.length === 0) return { peso: null, gordura: null, imc: null, circunferencias: null };
 
     const labels = avaliacoes.map(av => formatDate(av.dataAvaliacao?.toDate()));
 
@@ -167,7 +168,37 @@ export default function RelatorioAluno() {
       }]
     };
 
-    return { peso: pesoData, gordura: gorduraData, imc: imcData };
+    // Preparar dados de circunferências
+    const circunferenciasDisponiveis = {};
+    avaliacoes.forEach(av => {
+      if (av.circunferencias) {
+        Object.keys(av.circunferencias).forEach(circ => {
+          circunferenciasDisponiveis[circ] = true;
+        });
+      }
+    });
+
+    const cores = [
+      { borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)' },
+      { borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+      { borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+      { borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' },
+      { borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)' },
+    ];
+
+    const circunferenciasData = Object.keys(circunferenciasDisponiveis).length > 0 ? {
+      labels,
+      datasets: Object.keys(circunferenciasDisponiveis).map((circ, index) => ({
+        label: circ.replace(/([A-Z])/g, ' $1').trim(),
+        data: avaliacoes.map(av => av.circunferencias?.[circ] || null),
+        borderColor: cores[index % cores.length].borderColor,
+        backgroundColor: cores[index % cores.length].backgroundColor,
+        fill: false,
+        tension: 0.3,
+      }))
+    } : null;
+
+    return { peso: pesoData, gordura: gorduraData, imc: imcData, circunferencias: circunferenciasData };
   };
 
   const handlePrint = () => {
@@ -177,7 +208,16 @@ export default function RelatorioAluno() {
   const handleGeneratePDF = async () => {
     try {
       setGeneratingPDF(true);
-      await generatePDFReport(aluno, avaliacoes, stats);
+      
+      // Preparar elementos dos gráficos para incluir no PDF
+      const chartElements = {
+        peso: chartRefs.current.peso,
+        gordura: chartRefs.current.gordura,
+        imc: chartRefs.current.imc,
+        circunferencias: chartRefs.current.circunferencias
+      };
+      
+      await generatePDFReport(aluno, avaliacoes, stats, chartElements);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       alert('Erro ao gerar PDF. Tente novamente.');
@@ -197,7 +237,8 @@ export default function RelatorioAluno() {
       const chartTitles = {
         peso: 'Evolução do Peso',
         gordura: 'Evolução do Percentual de Gordura',
-        imc: 'Evolução do IMC'
+        imc: 'Evolução do IMC',
+        circunferencias: 'Evolução das Circunferências'
       };
 
       await generateChartPDF(chartElement, aluno, chartTitles[chartType]);
@@ -246,16 +287,16 @@ export default function RelatorioAluno() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Acesso Negado</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-primary-700">Acesso Negado</h3>
+                <div className="mt-2 text-sm text-primary-600">
                   <p>Apenas administradores podem ver esta página.</p>
                 </div>
               </div>
@@ -338,7 +379,7 @@ export default function RelatorioAluno() {
               <button
                 onClick={handleGeneratePDF}
                 disabled={generatingPDF}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {generatingPDF ? (
                   <>
@@ -356,15 +397,6 @@ export default function RelatorioAluno() {
                     Gerar PDF
                   </>
                 )}
-              </button>
-              <button
-                onClick={handlePrint}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Imprimir
               </button>
               <Link 
                 href={`/admin/alunos/${id}`}
@@ -428,10 +460,10 @@ export default function RelatorioAluno() {
                   </div>
                 </div>
                 
-                <div className="bg-red-50 p-4 rounded-lg">
+                <div className="bg-blue-50 p-4 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-red-600 font-medium">Variação % Gordura</p>
+                      <p className="text-sm text-primary-600 font-medium">Variação % Gordura</p>
                       <p className={`text-2xl font-bold ${getVariacaoColor(stats.variacaoGordura)}`}>
                         {stats.variacaoGordura ? `${stats.variacaoGordura > 0 ? '+' : ''}${stats.variacaoGordura.toFixed(1)}%` : 'N/A'}
                       </p>
@@ -532,6 +564,26 @@ export default function RelatorioAluno() {
                     </div>
                   </div>
                 )}
+                
+                {graficos.circunferencias && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Evolução das Circunferências</h3>
+                      <button
+                        onClick={() => handleGenerateChartPDF('circunferencias')}
+                        className="print:hidden px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      >
+                        PDF do Gráfico
+                      </button>
+                    </div>
+                    <div 
+                      className="h-64"
+                      ref={el => chartRefs.current.circunferencias = el}
+                    >
+                      <CircunferenciasChart data={graficos.circunferencias} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -582,6 +634,93 @@ export default function RelatorioAluno() {
             </div>
           )}
 
+          {/* Evolução Fotográfica */}
+          {(() => {
+            const avaliacoesComFotos = avaliacoes.filter(av => av.fotos && Object.keys(av.fotos).length > 0);
+            if (avaliacoesComFotos.length === 0) return null;
+
+            const primeiraComFoto = avaliacoesComFotos[0];
+            const ultimaComFoto = avaliacoesComFotos[avaliacoesComFotos.length - 1];
+
+            return (
+              <div className="mb-8 print:break-before-page">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Evolução Fotográfica</h2>
+                
+                {primeiraComFoto.id === ultimaComFoto.id ? (
+                  // Apenas uma avaliação com fotos
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Avaliação de {formatDate(primeiraComFoto.dataAvaliacao?.toDate())}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(primeiraComFoto.fotos).map(([tipo, dadosFoto]) => (
+                        <div key={tipo} className="text-center">
+                          <div className="bg-gray-100 rounded-lg overflow-hidden mb-2">
+                            <img 
+                              src={dadosFoto.url} 
+                              alt={`Foto ${tipo}`}
+                              className="w-full h-48 object-cover"
+                            />
+                          </div>
+                          <p className="text-sm text-gray-600 capitalize">
+                            {tipo.replace(/([A-Z])/g, ' $1').trim()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // Comparativo entre primeira e última
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Primeira Avaliação - {formatDate(primeiraComFoto.dataAvaliacao?.toDate())}
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(primeiraComFoto.fotos).map(([tipo, dadosFoto]) => (
+                          <div key={tipo} className="text-center">
+                            <div className="bg-gray-100 rounded-lg overflow-hidden mb-2">
+                              <img 
+                                src={dadosFoto.url} 
+                                alt={`Primeira avaliação - ${tipo}`}
+                                className="w-full h-48 object-cover"
+                              />
+                            </div>
+                            <p className="text-sm text-gray-600 capitalize">
+                              {tipo.replace(/([A-Z])/g, ' $1').trim()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        Última Avaliação - {formatDate(ultimaComFoto.dataAvaliacao?.toDate())}
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(ultimaComFoto.fotos).map(([tipo, dadosFoto]) => (
+                          <div key={tipo} className="text-center">
+                            <div className="bg-gray-100 rounded-lg overflow-hidden mb-2">
+                              <img 
+                                src={dadosFoto.url} 
+                                alt={`Última avaliação - ${tipo}`}
+                                className="w-full h-48 object-cover"
+                              />
+                            </div>
+                            <p className="text-sm text-gray-600 capitalize">
+                              {tipo.replace(/([A-Z])/g, ' $1').trim()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Análise e Recomendações */}
           {avaliacoes.length > 1 && (
             <div className="mb-8">
@@ -593,7 +732,7 @@ export default function RelatorioAluno() {
                   <p>• <strong>Duração do acompanhamento:</strong> {stats.periodoMonitoramento} dias com {stats.totalAvaliacoes} avaliações realizadas.</p>
                   <p>• <strong>Frequência de avaliações:</strong> {(stats.totalAvaliacoes / Math.max(1, Math.ceil(stats.periodoMonitoramento / 30))).toFixed(1)} avaliações por mês.</p>
                   {stats.variacaoPeso !== 0 && (
-                    <p>• <strong>Tendência de peso:</strong> {stats.variacaoPeso > 0 ? 'Ganho' : 'Perda'} de {Math.abs(stats.variacaoPeso).toFixed(1)} kg no período.</p>
+                    <p>• <strong>Tendência de peso:</strong> {stats.variacaoPeso > 0 ? 'Ganho' : 'Redução'} de {Math.abs(stats.variacaoPeso).toFixed(1)} kg no período.</p>
                   )}
                   {stats.variacaoGordura !== 0 && (
                     <p>• <strong>Composição corporal:</strong> {stats.variacaoGordura > 0 ? 'Aumento' : 'Redução'} de {Math.abs(stats.variacaoGordura).toFixed(1)}% na gordura corporal.</p>

@@ -7,7 +7,9 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
-        "setup": "npm install && npm run build"
+        "setup": "npm install && npm run build",
+        "prepare-deploy": "node scripts/prepare-deploy.js",
+        "deploy-check": "npm run lint && npm run build"
     },
     "engines": {
         "node": ">=16.0.0",

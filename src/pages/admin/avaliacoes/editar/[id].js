@@ -1,32 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
-import { collection, doc, addDoc, getDoc, Timestamp, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
-import { useAuth } from '../../../contexts/AuthContext';
-import Layout from '../../../components/layout/Layout';
+import { collection, doc, updateDoc, getDoc, Timestamp, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../../../lib/firebase';
+import { useAuth } from '../../../../contexts/AuthContext';
+import Layout from '../../../../components/layout/Layout';
 import Link from 'next/link';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import FotoUpload from '../../../components/ui/FotoUpload';
+import FotoUpload from '../../../../components/ui/FotoUpload';
 import { 
   processarMultiplasImagens, 
   salvarFotosAvaliacao,
   formatarTamanho 
-} from '../../../utils/imageUploadLocal';
+} from '../../../../utils/imageUploadLocal';
 
-export default function NovaAvaliacao() {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();
+export default function EditarAvaliacao() {
+  const router = useRouter();
+  const { id } = router.query;
+  const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm();
   const { currentUser, userType } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(true);
   const [processandoFotos, setProcessandoFotos] = useState(false);
   const [alunos, setAlunos] = useState([]);
   const [selectedAluno, setSelectedAluno] = useState(null);
-  const [loadingAlunos, setLoadingAlunos] = useState(true);
+  const [avaliacao, setAvaliacao] = useState(null);
   const [fotos, setFotos] = useState({});
   const [progressoFotos, setProgressoFotos] = useState(null);
-  const router = useRouter();
-  const { alunoId } = router.query;
   
   // Tabs para diferentes seções do formulário
   const [activeTab, setActiveTab] = useState('composicao');
@@ -36,93 +37,143 @@ export default function NovaAvaliacao() {
   const altura = watch('altura');
   const percentualGordura = watch('percentualGordura');
 
-  const mostrarInfoModoGratuito = () => {
-    const totalFotos = Object.keys(fotos).length;
-    let tamanhoEstimado = 0;
-    
-    Object.values(fotos).forEach(file => {
-      if (file instanceof File) {
-        tamanhoEstimado += file.size;
-      }
-    });
-
-    toast.info(
-      `• ${totalFotos} fotos selecionadas\n` +
-      `• Tamanho estimado: ${formatarTamanho(tamanhoEstimado)}\n` +
-      `• Fotos serão otimizadas automaticamente\n` +
-      `• Máximo 2MB por foto`, 
-      { autoClose: 8000 }
-    );
-  };
-
+  // Calcular valores automaticamente
   useEffect(() => {
-    // Quando peso e altura são preenchidos, calcula o IMC automaticamente
     if (peso && altura) {
-      const alturaMetros = parseFloat(altura) / 100;
-      const imc = (parseFloat(peso) / (alturaMetros * alturaMetros)).toFixed(1);
+      const alturaMetros = altura / 100;
+      const imc = (peso / (alturaMetros * alturaMetros)).toFixed(1);
       setValue('imc', imc);
     }
-    
-    // Quando peso e percentual de gordura são preenchidos, calcula massa magra e gorda
+  }, [peso, altura, setValue]);
+
+  useEffect(() => {
     if (peso && percentualGordura) {
-      const massaGorda = ((parseFloat(peso) * parseFloat(percentualGordura)) / 100).toFixed(1);
-      const massaMagra = (parseFloat(peso) - parseFloat(massaGorda)).toFixed(1);
+      const massaGorda = (peso * percentualGordura / 100).toFixed(1);
+      const massaMagra = (peso - massaGorda).toFixed(1);
       setValue('massaGorda', massaGorda);
       setValue('massaMagra', massaMagra);
     }
-  }, [peso, altura, percentualGordura, setValue]);
+  }, [peso, percentualGordura, setValue]);
 
-  // Carregar lista de alunos
+  // Buscar alunos
   useEffect(() => {
     const fetchAlunos = async () => {
+      if (!currentUser) return;
+      
       try {
-        setLoadingAlunos(true);
-        const alunosQuery = query(collection(db, 'usuarios'), where('tipo', '==', 'aluno'));
-        const alunosSnapshot = await getDocs(alunosQuery);
+        const alunosQuery = query(
+          collection(db, 'usuarios'),
+          where('tipo', '==', 'aluno')
+        );
         
+        const alunosSnapshot = await getDocs(alunosQuery);
         const alunosData = alunosSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         
         setAlunos(alunosData);
-        
-        // Se um alunoId for fornecido na URL, pré-selecione esse aluno
-        if (alunoId) {
-          const alunoDoc = await getDoc(doc(db, 'usuarios', alunoId));
-          if (alunoDoc.exists()) {
-            const alunoData = { id: alunoDoc.id, ...alunoDoc.data() };
-            setSelectedAluno(alunoData);
-            setValue('alunoId', alunoId);
-          }
-        }
       } catch (error) {
         console.error('Erro ao buscar alunos:', error);
         toast.error('Erro ao carregar lista de alunos');
-      } finally {
-        setLoadingAlunos(false);
       }
     };
+    
+    fetchAlunos();
+  }, [currentUser]);
 
-    if (currentUser && userType === 'admin') {
-      fetchAlunos();
+  // Buscar dados da avaliação existente
+  useEffect(() => {
+    const fetchAvaliacao = async () => {
+      if (!id || !currentUser) return;
+      
+      try {
+        setLoadingPage(true);
+        
+        const avaliacaoDoc = await getDoc(doc(db, 'avaliacoes', id));
+        
+        if (!avaliacaoDoc.exists()) {
+          toast.error('Avaliação não encontrada');
+          router.push('/admin/avaliacoes');
+          return;
+        }
+        
+        const avaliacaoData = {
+          id: avaliacaoDoc.id,
+          ...avaliacaoDoc.data()
+        };
+        
+        setAvaliacao(avaliacaoData);
+        
+        // Preencher formulário com dados existentes
+        const formData = {
+          alunoId: avaliacaoData.alunoId,
+          dataAvaliacao: avaliacaoData.dataAvaliacao?.toDate()?.toISOString().split('T')[0] || '',
+          peso: avaliacaoData.peso,
+          altura: avaliacaoData.altura,
+          imc: avaliacaoData.imc,
+          percentualGordura: avaliacaoData.percentualGordura,
+          massaGorda: avaliacaoData.massaGorda,
+          massaMagra: avaliacaoData.massaMagra,
+          
+          // Circunferências
+          circBracoDireito: avaliacaoData.circunferencias?.bracoDireito,
+          circBracoEsquerdo: avaliacaoData.circunferencias?.bracoEsquerdo,
+          circAntebracoDireito: avaliacaoData.circunferencias?.antebracoDireito,
+          circAntebracoEsquerdo: avaliacaoData.circunferencias?.antebracoEsquerdo,
+          circTorax: avaliacaoData.circunferencias?.torax,
+          circCintura: avaliacaoData.circunferencias?.cintura,
+          circAbdomen: avaliacaoData.circunferencias?.abdomen,
+          circQuadril: avaliacaoData.circunferencias?.quadril,
+          circCoxaDireita: avaliacaoData.circunferencias?.coxaDireita,
+          circCoxaEsquerda: avaliacaoData.circunferencias?.coxaEsquerda,
+          circPanturrilhaDireita: avaliacaoData.circunferencias?.panturrilhaDireita,
+          circPanturrilhaEsquerda: avaliacaoData.circunferencias?.panturrilhaEsquerda,
+          
+          // Testes físicos
+          testeForcaBraco: avaliacaoData.testes?.forcaBraco,
+          testeResistencia: avaliacaoData.testes?.resistencia,
+          testeFlexibilidade: avaliacaoData.testes?.flexibilidade,
+          testeVO2max: avaliacaoData.testes?.vo2max,
+          
+          observacoes: avaliacaoData.observacoes
+        };
+        
+        reset(formData);
+        
+        // Buscar dados do aluno selecionado
+        const aluno = alunos.find(a => a.id === avaliacaoData.alunoId);
+        if (aluno) {
+          setSelectedAluno(aluno);
+        }
+        
+        // Preparar fotos existentes se houver
+        if (avaliacaoData.fotos) {
+          setFotos(avaliacaoData.fotos);
+        }
+        
+      } catch (error) {
+        console.error('Erro ao buscar avaliação:', error);
+        toast.error('Erro ao carregar dados da avaliação');
+        router.push('/admin/avaliacoes');
+      } finally {
+        setLoadingPage(false);
+      }
+    };
+    
+    if (id && alunos.length > 0) {
+      fetchAvaliacao();
     }
-  }, [currentUser, userType, alunoId, setValue]);
+  }, [id, currentUser, alunos, reset, router]);
 
   const onSubmit = async (data) => {
     if (userType !== 'admin') {
-      toast.error('Você não tem permissão para cadastrar avaliações');
+      toast.error('Você não tem permissão para editar avaliações');
       return;
     }
     
     if (!data.alunoId) {
       toast.error('Selecione um aluno para a avaliação');
-      return;
-    }
-    
-    // Validar se há pelo menos uma foto
-    if (Object.keys(fotos).length === 0) {
-      toast.error('É obrigatório incluir pelo menos uma foto na avaliação');
       return;
     }
     
@@ -152,8 +203,6 @@ export default function NovaAvaliacao() {
       const avaliacaoData = {
         alunoId: data.alunoId,
         alunoNome: selectedAluno?.nome || '',
-        avaliadorId: currentUser.uid,
-        avaliador: 'Admin',
         dataAvaliacao: Timestamp.fromDate(data.dataAvaliacao ? new Date(data.dataAvaliacao) : new Date()),
         
         // Composição corporal
@@ -189,106 +238,167 @@ export default function NovaAvaliacao() {
         },
         
         observacoes: data.observacoes || '',
-        createdAt: Timestamp.now()
+        updatedAt: Timestamp.now()
       };
       
-      // Salvar avaliação no Firestore primeiro (para obter o ID)
-      const avaliacaoRef = await addDoc(collection(db, 'avaliacoes'), avaliacaoData);
-      const avaliacaoId = avaliacaoRef.id;
+      // Atualizar avaliação no Firestore
+      await updateDoc(doc(db, 'avaliacoes', id), avaliacaoData);
       
-      // Processar fotos (agora obrigatórias)
-      setProcessandoFotos(true);
-      
-      try {
-        const resultadosProcessamento = await processarMultiplasImagens(
-          fotos,
-          (progress) => {
-            setProgressoFotos(progress);
-            toast.info(`Processando foto ${progress.processados}/${progress.total}: ${progress.tipo}`);
+      // Processar fotos se houver mudanças
+      if (Object.keys(fotos).length > 0) {
+        setProcessandoFotos(true);
+        
+        try {
+          const resultadosProcessamento = await processarMultiplasImagens(
+            fotos,
+            (progress) => {
+              setProgressoFotos(progress);
+              toast.info(`Processando foto ${progress.processados}/${progress.total}: ${progress.tipo}`);
+            }
+          );
+          
+          // Salvar fotos processadas no Firestore
+          const resultadoSalvar = await salvarFotosAvaliacao(id, resultadosProcessamento);
+          
+          if (resultadoSalvar.sucesso) {
+            toast.success(`✅ ${resultadoSalvar.quantidadeSalvas} fotos atualizadas com sucesso!`);
+          } else {
+            toast.warning('Algumas fotos não puderam ser salvas.');
           }
-        );
-        
-        // Salvar fotos processadas no Firestore
-        const resultadoSalvar = await salvarFotosAvaliacao(avaliacaoId, resultadosProcessamento);
-        
-        if (resultadoSalvar.sucesso) {
-          toast.success(`✅ ${resultadoSalvar.quantidadeSalvas} fotos salvas com sucesso!`);
-        } else {
-          toast.warning('Algumas fotos não puderam ser salvas.');
+          
+        } catch (processError) {
+          console.error('Erro no processamento de fotos:', processError);
+          toast.error('Erro ao processar fotos, mas a avaliação foi atualizada.');
+        } finally {
+          setProcessandoFotos(false);
+          setProgressoFotos(null);
         }
-        
-        // Verificar se houve algum erro no processamento
-        const errosProcessamento = Object.entries(resultadosProcessamento)
-          .filter(([_, resultado]) => !resultado.sucesso)
-          .map(([tipo, resultado]) => `${tipo}: ${resultado.erro}`);
-        
-        if (errosProcessamento.length > 0) {
-          toast.warning(`Problemas em algumas fotos: ${errosProcessamento.join(', ')}`);
-        }
-      } catch (processError) {
-        console.error('Erro no processamento de fotos:', processError);
-        toast.error('Erro ao processar fotos, mas a avaliação foi salva.');
-      } finally {
-        setProcessandoFotos(false);
-        setProgressoFotos(null);
       }
       
-      toast.success('✅ Avaliação cadastrada com sucesso!');
+      toast.success('✅ Avaliação atualizada com sucesso!');
       
       // Aguardar um pouco antes de redirecionar
       setTimeout(() => {
-        router.push('/admin/alunos');
+        router.push(`/admin/avaliacoes/${id}`);
       }, 2000);
     } catch (error) {
-      console.error('Erro ao cadastrar avaliação:', error);
-      toast.error('Falha ao cadastrar avaliação. Tente novamente.');
+      console.error('Erro ao atualizar avaliação:', error);
+      toast.error('Falha ao atualizar avaliação. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (loadingPage) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-6 flex justify-center items-center h-64">
+          <div className="flex flex-col items-center">
+            <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-gray-600">Carregando dados da avaliação...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Nova Avaliação Física</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Editar Avaliação Física</h1>
+            {selectedAluno && (
+              <p className="text-gray-600 mt-1">Aluno: {selectedAluno.nome}</p>
+            )}
           </div>
-          <Link 
-            href="/admin/alunos"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            Cancelar
-          </Link>
+          <div className="flex gap-2">
+            <Link 
+              href={`/admin/avaliacoes/${id}`}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Cancelar
+            </Link>
+          </div>
         </div>
         
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          {/* Tabs */}
+          <div className="border-b border-gray-200 bg-gray-50">
+            <nav className="-mb-px flex">
+              <button
+                onClick={() => setActiveTab('composicao')}
+                className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                  activeTab === 'composicao'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Composição Corporal
+              </button>
+              <button
+                onClick={() => setActiveTab('circunferencias')}
+                className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                  activeTab === 'circunferencias'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Circunferências
+              </button>
+              <button
+                onClick={() => setActiveTab('testes')}
+                className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                  activeTab === 'testes'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Testes Físicos
+              </button>
+              <button
+                onClick={() => setActiveTab('fotos')}
+                className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                  activeTab === 'fotos'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Fotos
+              </button>
+              <button
+                onClick={() => setActiveTab('observacoes')}
+                className={`py-2 px-4 border-b-2 font-medium text-sm ${
+                  activeTab === 'observacoes'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Observações
+              </button>
+            </nav>
+          </div>
+          
           <div className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Seleção de Aluno */}
+              {/* Seleção de Aluno e Data */}
               <div className="border-b border-gray-200 pb-4 mb-4">
-                <h2 className="text-lg font-medium text-gray-800 mb-4">Aluno</h2>
+                <h2 className="text-lg font-medium text-gray-800 mb-4">Informações Básicas</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="alunoId" className="block text-sm font-medium text-gray-700">
-                      Selecione o Aluno *
+                      Aluno *
                     </label>
                     <div className="mt-1">
                       <select
                         id="alunoId"
-                        disabled={loadingAlunos || alunoId}
-                        className={`appearance-none block w-full px-3 py-2 border ${
-                          errors.alunoId ? 'border-blue-300' : 'border-gray-300'
-                        } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          (loadingAlunos || alunoId) ? 'bg-gray-100' : ''
-                        }`}
+                        disabled={true} // Não permitir alterar o aluno na edição
+                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 sm:text-sm"
                         {...register('alunoId', { required: 'Selecione um aluno' })}
-                        onChange={(e) => {
-                          const selectedId = e.target.value;
-                          const aluno = alunos.find(a => a.id === selectedId);
-                          setSelectedAluno(aluno);
-                        }}
                       >
                         <option value="">Selecione um aluno</option>
                         {alunos.map(aluno => (
@@ -311,7 +421,6 @@ export default function NovaAvaliacao() {
                       <input
                         id="dataAvaliacao"
                         type="date"
-                        defaultValue={new Date().toISOString().split('T')[0]}
                         className={`appearance-none block w-full px-3 py-2 border ${
                           errors.dataAvaliacao ? 'border-blue-300' : 'border-gray-300'
                         } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
@@ -324,68 +433,7 @@ export default function NovaAvaliacao() {
                   </div>
                 </div>
               </div>
-              
-              {/* Tabs para diferentes seções do formulário */}
-              <div className="border-b border-gray-200 mb-6">
-                <div className="flex space-x-8">
-                  <button
-                    type="button"
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'composicao'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    onClick={() => setActiveTab('composicao')}
-                  >
-                    Composição Corporal
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'circunferencias'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    onClick={() => setActiveTab('circunferencias')}
-                  >
-                    Circunferências
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'testes'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    onClick={() => setActiveTab('testes')}
-                  >
-                    Testes Físicos
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'fotos'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    onClick={() => setActiveTab('fotos')}
-                  >
-                    📷 Fotos
-                  </button>
-                  <button
-                    type="button"
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      activeTab === 'observacoes'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                    onClick={() => setActiveTab('observacoes')}
-                  >
-                    Observações
-                  </button>
-                </div>
-              </div>
-              
+
               {/* Composição Corporal */}
               {activeTab === 'composicao' && (
                 <div className="space-y-6">
@@ -521,6 +569,7 @@ export default function NovaAvaliacao() {
                   <h3 className="text-lg font-medium text-gray-800">Circunferências (cm) - Todos os campos obrigatórios</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Braços */}
                     <div>
                       <label htmlFor="circBracoDireito" className="block text-sm font-medium text-gray-700">
                         Braço Direito *
@@ -617,6 +666,7 @@ export default function NovaAvaliacao() {
                       </div>
                     </div>
                     
+                    {/* Tronco */}
                     <div>
                       <label htmlFor="circTorax" className="block text-sm font-medium text-gray-700">
                         Tórax *
@@ -713,6 +763,7 @@ export default function NovaAvaliacao() {
                       </div>
                     </div>
                     
+                    {/* Pernas */}
                     <div>
                       <label htmlFor="circCoxaDireita" className="block text-sm font-medium text-gray-700">
                         Coxa Direita *
@@ -844,20 +895,21 @@ export default function NovaAvaliacao() {
                     
                     <div>
                       <label htmlFor="testeResistencia" className="block text-sm font-medium text-gray-700">
-                        Resistência Abdominal (repetições) *
+                        Resistência (minutos) *
                       </label>
                       <div className="mt-1">
                         <input
                           id="testeResistencia"
                           type="number"
+                          step="0.1"
                           min="0"
                           className={`appearance-none block w-full px-3 py-2 border ${
                             errors.testeResistencia ? 'border-blue-300' : 'border-gray-300'
                           } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                           {...register('testeResistencia', { 
-                            required: 'Teste de resistência abdominal é obrigatório',
+                            required: 'Teste de resistência é obrigatório',
                             min: { value: 0, message: 'Valor deve ser maior ou igual a 0' },
-                            max: { value: 300, message: 'Valor deve ser menor que 300' }
+                            max: { value: 120, message: 'Valor deve ser menor que 120 minutos' }
                           })}
                         />
                         {errors.testeResistencia && (
@@ -880,8 +932,8 @@ export default function NovaAvaliacao() {
                           } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                           {...register('testeFlexibilidade', { 
                             required: 'Teste de flexibilidade é obrigatório',
-                            min: { value: -20, message: 'Valor deve ser maior que -20cm' },
-                            max: { value: 60, message: 'Valor deve ser menor que 60cm' }
+                            min: { value: -30, message: 'Valor deve ser maior que -30cm' },
+                            max: { value: 50, message: 'Valor deve ser menor que 50cm' }
                           })}
                         />
                         {errors.testeFlexibilidade && (
@@ -918,48 +970,36 @@ export default function NovaAvaliacao() {
                 </div>
               )}
               
-              {/* Nova aba de Fotos */}
+              {/* Fotos */}
               {activeTab === 'fotos' && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-medium text-gray-800">Fotos da Avaliação - Obrigatórias</h3>
-                  
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-green-700 mt-1">Fotos são otimizadas e salvas no Firestore. Clique para ver detalhes.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={mostrarInfoModoGratuito}
-                        className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-800 bg-green-100 hover:bg-green-200 transition-colors"
-                      >
-                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <h3 className="text-lg font-medium text-gray-800">Fotos da Avaliação</h3>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
-                        Ver Informações
-                      </button>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                          Atenção ao editar fotos
+                        </h3>
+                        <div className="mt-2 text-sm text-yellow-700">
+                          <p>
+                            Novas fotos adicionadas substituirão as fotos existentes da mesma categoria. 
+                            Se você não quiser alterar as fotos, deixe em branco.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
+                  
                   <FotoUpload 
                     fotos={fotos}
-                    onFotosChange={setFotos}
-                    disabled={loading || processandoFotos}
+                    setFotos={setFotos}
+                    isRequired={false}
                   />
-                  
-                  {progressoFotos && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center">
-                        <svg className="animate-spin h-5 w-5 text-blue-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="text-sm text-blue-800">
-                          Processando fotos: {progressoFotos.processados}/{progressoFotos.total}
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
               
@@ -985,9 +1025,10 @@ export default function NovaAvaliacao() {
                 </div>
               )}
               
+              {/* Botões de ação */}
               <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                 <Link 
-                  href="/admin/alunos"
+                  href={`/admin/avaliacoes/${id}`}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Cancelar
@@ -999,12 +1040,38 @@ export default function NovaAvaliacao() {
                     loading ? 'opacity-70 cursor-not-allowed' : ''
                   }`}
                 >
-                  {loading ? 'Salvando...' : 'Salvar Avaliação'}
+                  {loading ? 'Salvando...' : 'Atualizar Avaliação'}
                 </button>
               </div>
             </form>
           </div>
         </div>
+        
+        {/* Progress de processamento de fotos */}
+        {processandoFotos && progressoFotos && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Processando Fotos</h3>
+              <div className="mb-4">
+                <div className="bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(progressoFotos.processados / progressoFotos.total) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {progressoFotos.processados} de {progressoFotos.total} fotos processadas
+                </p>
+                <p className="text-sm text-gray-600">
+                  Processando: {progressoFotos.tipo}
+                </p>
+              </div>
+              <div className="text-sm text-gray-500">
+                Tamanho total: {formatarTamanho(progressoFotos.tamanhoTotal)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <ToastContainer position="top-right" autoClose={5000} />
     </Layout>

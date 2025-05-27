@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import Layout from '../../../components/layout/Layout';
@@ -9,6 +9,9 @@ import Link from 'next/link';
 import LineChart from '../../../components/layout/charts/LineChart';
 import FotoGaleria from '../../../components/ui/FotoGaleria';
 import { prepararDadosFotosParaExibicao } from '../../../utils/imageUploadLocal';
+import ConfirmDeleteModal from '../../../components/ui/ConfirmDeleteModal';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function DetalhesAluno() {
   const router = useRouter();
@@ -20,6 +23,9 @@ export default function DetalhesAluno() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [avaliacaoToDelete, setAvaliacaoToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   
   // Data para visualizações
   const [pesoData, setPesoData] = useState({ labels: [], datasets: [] });
@@ -248,6 +254,46 @@ export default function DetalhesAluno() {
     return 'text-gray-500';
   };
 
+  // Função para abrir modal de confirmação de exclusão
+  const handleDeleteClick = (avaliacao) => {
+    setAvaliacaoToDelete(avaliacao);
+    setShowDeleteModal(true);
+  };
+
+  // Função para fechar modal de exclusão
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setAvaliacaoToDelete(null);
+  };
+
+  // Função para confirmar exclusão
+  const handleDeleteConfirm = async () => {
+    if (!avaliacaoToDelete) return;
+
+    try {
+      setDeleting(true);
+      
+      // Excluir a avaliação do Firestore
+      await deleteDoc(doc(db, 'avaliacoes', avaliacaoToDelete.id));
+      
+      // Remover da lista local
+      setAvaliacoes(prev => prev.filter(av => av.id !== avaliacaoToDelete.id));
+      
+      // Fechar modal
+      setShowDeleteModal(false);
+      setAvaliacaoToDelete(null);
+      
+      // Mostrar mensagem de sucesso
+      toast.success('Avaliação excluída com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao excluir avaliação:', error);
+      toast.error('Erro ao excluir avaliação. Tente novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -268,19 +314,19 @@ export default function DetalhesAluno() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Erro ao carregar aluno</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-primary-700">Erro ao carregar aluno</h3>
+                <div className="mt-2 text-sm text-primary-600">
                   <p>{error}</p>
                   <div className="mt-4">
-                    <Link href="/admin/alunos" className="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-500">
+                    <Link href="/admin/alunos" className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-500">
                       <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
                       </svg>
@@ -578,7 +624,7 @@ export default function DetalhesAluno() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IMC</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Massa Magra (kg)</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fotos</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -620,13 +666,37 @@ export default function DetalhesAluno() {
                             <span className="text-sm text-gray-400">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Link 
-                            href={`/admin/avaliacoes/${avaliacao.id}`}
-                            className="text-blue-600 hover:text-blue-900 transition-colors"
-                          >
-                            Ver Detalhes
-                          </Link>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Link 
+                              href={`/admin/avaliacoes/${avaliacao.id}`}
+                              className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Ver detalhes da avaliação"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </Link>
+                            <Link 
+                              href={`/admin/avaliacoes/editar/${avaliacao.id}`}
+                              className="text-yellow-600 hover:text-yellow-900 p-2 hover:bg-yellow-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Editar avaliação"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </Link>
+                            <button
+                              onClick={() => handleDeleteClick(avaliacao)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Excluir avaliação"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -636,6 +706,34 @@ export default function DetalhesAluno() {
             )}
           </div>
         </div>
+
+        {/* Modal de confirmação de exclusão */}
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Excluir Avaliação"
+          message={`Tem certeza que deseja excluir a avaliação de ${aluno.nome} do dia ${
+            avaliacaoToDelete?.dataAvaliacao?.toDate 
+              ? formatDate(avaliacaoToDelete.dataAvaliacao.toDate()) 
+              : 'N/A'
+          }? Esta ação não pode ser desfeita.`}
+          confirmText="Excluir Avaliação"
+          isLoading={deleting}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
       </div>
     </Layout>
   );

@@ -399,7 +399,9 @@ export default function EvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução da Composição Corporal</h3>
                     {dataSeries.composicao.labels?.length > 0 ? (
-                      <ComposicaoCorporalChart data={dataSeries.composicao} />
+                      <div className="h-80">
+                        <ComposicaoCorporalChart data={dataSeries.composicao} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de composição corporal encontrado para o período selecionado.
@@ -412,7 +414,9 @@ export default function EvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução das Circunferências</h3>
                     {dataSeries.circunferencias.labels?.length > 0 && dataSeries.circunferencias.datasets?.length > 0 ? (
-                      <CircunferenciasChart data={dataSeries.circunferencias} />
+                      <div className="h-80">
+                        <CircunferenciasChart data={dataSeries.circunferencias} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de circunferências encontrado para o período selecionado.
@@ -425,7 +429,9 @@ export default function EvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução dos Testes</h3>
                     {dataSeries.testes.labels?.length > 0 && dataSeries.testes.datasets?.length > 0 ? (
-                      <TestesChart data={dataSeries.testes} />
+                      <div className="h-80">
+                        <TestesChart data={dataSeries.testes} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de testes encontrado para o período selecionado.
@@ -517,12 +523,12 @@ export default function EvolucaoCompleta() {
                       <h4 className="text-sm font-medium text-gray-700">{labels[campo]}</h4>
                       <div className="mt-2">
                         <div className={`text-lg font-semibold ${
-                          variacao.valor > 0 ? 'text-green-600' : variacao.valor < 0 ? 'text-red-600' : 'text-gray-600'
+                          variacao.valor > 0 ? 'text-green-600' : variacao.valor < 0 ? 'text-blue-600' : 'text-gray-600'
                         }`}>
                           {variacao.valor > 0 ? '+' : ''}{variacao.valor.toFixed(1)}{unidades[campo]}
                         </div>
                         <div className={`text-sm ${
-                          variacao.percentual > 0 ? 'text-green-600' : variacao.percentual < 0 ? 'text-red-600' : 'text-gray-600'
+                          variacao.percentual > 0 ? 'text-green-600' : variacao.percentual < 0 ? 'text-blue-600' : 'text-gray-600'
                         }`}>
                           {variacao.percentual > 0 ? '+' : ''}{variacao.percentual.toFixed(1)}%
                         </div>

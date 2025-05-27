@@ -13,10 +13,10 @@ const ProgressWidget = ({
   
   const colorClasses = {
     blue: {
-      bg: 'bg-blue-500',
+      bg: 'bg-primary-500',
       lightBg: 'bg-blue-100',
-      text: 'text-blue-600',
-      ring: 'ring-blue-500'
+      text: 'text-primary-600',
+      ring: 'ring-primary-500'
     },
     green: {
       bg: 'bg-green-500',
@@ -25,10 +25,10 @@ const ProgressWidget = ({
       ring: 'ring-green-500'
     },
     red: {
-      bg: 'bg-red-500',
-      lightBg: 'bg-red-100',
-      text: 'text-red-600',
-      ring: 'ring-red-500'
+      bg: 'bg-primary-500',
+      lightBg: 'bg-blue-100',
+      text: 'text-primary-600',
+      ring: 'ring-primary-500'
     },
     purple: {
       bg: 'bg-purple-500',
@@ -54,7 +54,7 @@ const ProgressWidget = ({
         );
       case 'down':
         return (
-          <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
           </svg>
         );

@@ -18,29 +18,19 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Função para log de depuração
-  const logDebug = (message, data = null) => {
-    console.log(`[DEBUG] ${message}`, data);
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       if (currentUser?.uid) {
         try {
           setLoading(true);
           
-          // Contagem total de alunos
-          logDebug('Buscando total de alunos');
           const alunosQuery = query(
             collection(db, 'usuarios'),
             where('tipo', '==', 'aluno')
           );
           const alunosSnapshot = await getDocs(alunosQuery);
           const totalAlunos = alunosSnapshot.size;
-          logDebug(`Total de alunos encontrados: ${totalAlunos}`);
           
-          // Últimos alunos cadastrados
-          logDebug('Buscando alunos recentes');
           let alunosRecentesData = [];
           
           if (totalAlunos > 0) {
@@ -55,15 +45,11 @@ export default function AdminDashboard() {
               id: doc.id,
               ...doc.data()
             }));
-            logDebug(`Alunos recentes encontrados: ${alunosRecentesData.length}`);
           }
           
-          // Total de avaliações
-          logDebug('Buscando total de avaliações');
           const avaliacoesQuery = query(collection(db, 'avaliacoes'));
           const avaliacoesSnapshot = await getDocs(avaliacoesQuery);
           const totalAvaliacoes = avaliacoesSnapshot.size;
-          logDebug(`Total de avaliações encontradas: ${totalAvaliacoes}`);
           
           // Avaliações do último mês
           const umMesAtras = new Date();
@@ -72,21 +58,18 @@ export default function AdminDashboard() {
           let avaliacoesRecentes = 0;
           
           if (totalAvaliacoes > 0) {
-            logDebug('Buscando avaliações recentes');
             const avaliacoesRecentesCountQuery = query(
               collection(db, 'avaliacoes'),
               where('dataAvaliacao', '>=', Timestamp.fromDate(umMesAtras))
             );
             const avaliacoesRecentesCountSnapshot = await getDocs(avaliacoesRecentesCountQuery);
             avaliacoesRecentes = avaliacoesRecentesCountSnapshot.size;
-            logDebug(`Avaliações recentes encontradas: ${avaliacoesRecentes}`);
           }
           
           // Últimas avaliações realizadas
           let avaliacoesData = [];
           
           if (totalAvaliacoes > 0) {
-            logDebug('Buscando últimas avaliações');
             const ultimasAvaliacoesQuery = query(
               collection(db, 'avaliacoes'),
               orderBy('dataAvaliacao', 'desc'),
@@ -129,7 +112,6 @@ export default function AdminDashboard() {
               
               avaliacoesData.push(avaliacaoData);
             }
-            logDebug(`Últimas avaliações encontradas: ${avaliacoesData.length}`);
           }
           
           setStats({
@@ -158,15 +140,15 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard Admin</h1>
         
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">
+                <p className="text-sm text-blue-700">
                   Erro ao carregar dados: {error}
                 </p>
               </div>
@@ -303,9 +285,13 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <Link 
                                 href={`/admin/avaliacoes/${avaliacao.id}`}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors inline-flex items-center justify-center"
+                                title="Ver detalhes da avaliação"
                               >
-                                Detalhes
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
                               </Link>
                             </td>
                           </tr>
@@ -371,9 +357,12 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <Link 
                                 href={`/admin/alunos/${aluno.id}`}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors inline-flex items-center justify-center"
+                                title="Ver perfil do aluno"
                               >
-                                Ver Perfil
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
                               </Link>
                             </td>
                           </tr>

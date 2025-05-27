@@ -334,16 +334,16 @@ export default function AdminAlunoEvolucaoCompleta() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Acesso Negado</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-primary-700">Acesso Negado</h3>
+                <div className="mt-2 text-sm text-primary-600">
                   <p>Apenas administradores podem ver esta página.</p>
                 </div>
               </div>
@@ -520,7 +520,9 @@ export default function AdminAlunoEvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução da Composição Corporal</h3>
                     {dataSeries.composicao.labels?.length > 0 ? (
-                      <ComposicaoCorporalChart data={dataSeries.composicao} />
+                      <div className="h-80">
+                        <ComposicaoCorporalChart data={dataSeries.composicao} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de composição corporal encontrado para o período selecionado.
@@ -533,7 +535,9 @@ export default function AdminAlunoEvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução das Circunferências</h3>
                     {dataSeries.circunferencias.labels?.length > 0 && dataSeries.circunferencias.datasets?.length > 0 ? (
-                      <CircunferenciasChart data={dataSeries.circunferencias} />
+                      <div className="h-80">
+                        <CircunferenciasChart data={dataSeries.circunferencias} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de circunferências encontrado para o período selecionado.
@@ -546,7 +550,9 @@ export default function AdminAlunoEvolucaoCompleta() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Evolução dos Testes</h3>
                     {dataSeries.testes.labels?.length > 0 && dataSeries.testes.datasets?.length > 0 ? (
-                      <TestesChart data={dataSeries.testes} />
+                      <div className="h-80">
+                        <TestesChart data={dataSeries.testes} />
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         Nenhum dado de testes encontrado para o período selecionado.

@@ -8,6 +8,7 @@ import { formatDate } from '../../../utils/formatDate';
 import Link from 'next/link';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ConfirmDeleteModal from '../../../components/ui/ConfirmDeleteModal';
 
 export default function DetalhesAvaliacao() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function DetalhesAvaliacao() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('composicao');
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const fetchAvaliacao = async () => {
@@ -118,14 +119,27 @@ export default function DetalhesAvaliacao() {
     }
   };
 
-  // Função para deletar avaliação
-  const handleDelete = async () => {
+  // Função para abrir modal de confirmação
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  // Função para fechar modal
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+  };
+
+  // Função para confirmar exclusão
+  const handleDeleteConfirm = async () => {
     if (!id || userType !== 'admin') return;
     
     try {
       setDeleting(true);
       await deleteDoc(doc(db, 'avaliacoes', id));
       toast.success('Avaliação excluída com sucesso');
+      
+      // Fechar modal
+      setShowDeleteModal(false);
       
       // Redirecionar após exclusão
       setTimeout(() => {
@@ -155,20 +169,20 @@ export default function DetalhesAvaliacao() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
-          <div className="bg-red-50 p-4 rounded-md">
+          <div className="bg-blue-50 p-4 rounded-md">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">{error || 'Erro ao carregar avaliação'}</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-primary-700">{error || 'Erro ao carregar avaliação'}</h3>
+                <div className="mt-2 text-sm text-primary-600">
                   <p>Não foi possível carregar os dados da avaliação. Por favor, tente novamente mais tarde.</p>
                 </div>
                 <div className="mt-4">
-                  <Link href="/admin/avaliacoes" className="text-sm font-medium text-red-600 hover:text-red-500">
+                  <Link href="/admin/avaliacoes" className="text-sm font-medium text-primary-600 hover:text-primary-500">
                     Voltar para avaliações
                   </Link>
                 </div>
@@ -195,8 +209,17 @@ export default function DetalhesAvaliacao() {
             {userType === 'admin' && (
               <>
                 <Link 
+                  href={`/admin/avaliacoes/editar/${avaliacao.id}`}
+                  className="inline-flex items-center px-3 py-1 border border-yellow-300 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Editar
+                </Link>
+                <Link 
                   href={`/admin/avaliacoes/nova?alunoId=${avaliacao.alunoId}`}
-                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700"
+                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700"
                 >
                   Nova Avaliação
                 </Link>

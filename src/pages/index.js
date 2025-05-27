@@ -53,7 +53,7 @@ export default function Login() {
               }}
             />
             <h1 className="text-3xl font-bold text-white mb-4">Acompanhe sua evolução física</h1>
-            <p className="text-blue-100">Monitore seus resultados, visualize sua progressão e alcance seus objetivos de forma inteligente.</p>
+                          <p className="text-blue-100">Monitore seus resultados, visualize sua progressão e alcance seus objetivos de forma inteligente.</p>
           </div>
         </div>
         
@@ -98,7 +98,7 @@ export default function Login() {
                     autoComplete="email"
                     aria-describedby="email-error"
                     className={`pl-10 py-2 block w-full rounded-lg border ${
-                      errors.email ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                      errors.email ? 'border-blue-300 text-blue-900 placeholder-blue-300 focus:ring-blue-500 focus:border-blue-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     } shadow-sm`}
                     placeholder="seu@email.com"
                     {...register('email', { 
@@ -111,7 +111,7 @@ export default function Login() {
                   />
                 </div>
                 {errors.email && (
-                  <p className="mt-2 text-sm text-red-600" id="email-error">{errors.email.message}</p>
+                  <p className="mt-2 text-sm text-blue-600" id="email-error">{errors.email.message}</p>
                 )}
               </div>
 
@@ -132,7 +132,7 @@ export default function Login() {
                     autoComplete="current-password"
                     aria-describedby="password-error"
                     className={`pl-10 py-2 block w-full rounded-lg border ${
-                      errors.password ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                      errors.password ? 'border-blue-300 text-blue-900 placeholder-blue-300 focus:ring-blue-500 focus:border-blue-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                     } shadow-sm`}
                     {...register('password', { 
                       required: 'Senha é obrigatória',
@@ -144,7 +144,7 @@ export default function Login() {
                   />
                 </div>
                 {errors.password && (
-                  <p className="mt-2 text-sm text-red-600" id="password-error">{errors.password.message}</p>
+                  <p className="mt-2 text-sm text-blue-600" id="password-error">{errors.password.message}</p>
                 )}
               </div>
 

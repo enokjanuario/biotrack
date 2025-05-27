@@ -191,7 +191,7 @@ export default function NovoAluno() {
                       type="text"
                       autoComplete="name"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.nome ? 'border-red-300' : 'border-gray-300'
+                        errors.nome ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('nome', { 
                         required: 'Nome é obrigatório',
@@ -202,7 +202,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.nome && (
-                      <p className="mt-2 text-sm text-red-600">{errors.nome.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.nome.message}</p>
                     )}
                   </div>
                 </div>
@@ -218,7 +218,7 @@ export default function NovoAluno() {
                       autoComplete="off"
                       placeholder="000.000.000-00"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.cpf ? 'border-red-300' : 'border-gray-300'
+                        errors.cpf ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('cpf', { 
                         required: 'CPF é obrigatório',
@@ -226,7 +226,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.cpf && (
-                      <p className="mt-2 text-sm text-red-600">{errors.cpf.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.cpf.message}</p>
                     )}
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export default function NovoAluno() {
                       type="email"
                       autoComplete="email"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.email ? 'border-red-300' : 'border-gray-300'
+                        errors.email ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('email', { 
                         required: 'E-mail é obrigatório',
@@ -252,7 +252,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.email && (
-                      <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.email.message}</p>
                     )}
                   </div>
                 </div>
@@ -268,7 +268,7 @@ export default function NovoAluno() {
                       autoComplete="tel"
                       placeholder="(00) 00000-0000"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.telefone ? 'border-red-300' : 'border-gray-300'
+                        errors.telefone ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('telefone', { 
                         required: 'Telefone é obrigatório',
@@ -279,7 +279,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.telefone && (
-                      <p className="mt-2 text-sm text-red-600">{errors.telefone.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.telefone.message}</p>
                     )}
                   </div>
                 </div>
@@ -293,7 +293,7 @@ export default function NovoAluno() {
                       id="dataNascimento"
                       type="date"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.dataNascimento ? 'border-red-300' : 'border-gray-300'
+                        errors.dataNascimento ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('dataNascimento', { 
                         required: 'Data de nascimento é obrigatória',
@@ -308,7 +308,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.dataNascimento && (
-                      <p className="mt-2 text-sm text-red-600">{errors.dataNascimento.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.dataNascimento.message}</p>
                     )}
                   </div>
                 </div>
@@ -321,7 +321,7 @@ export default function NovoAluno() {
                     <select
                       id="sexo"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.sexo ? 'border-red-300' : 'border-gray-300'
+                        errors.sexo ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('sexo', { 
                         required: 'Sexo é obrigatório' 
@@ -332,7 +332,7 @@ export default function NovoAluno() {
                       <option value="F">Feminino</option>
                     </select>
                     {errors.sexo && (
-                      <p className="mt-2 text-sm text-red-600">{errors.sexo.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.sexo.message}</p>
                     )}
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function NovoAluno() {
                       min="0"
                       placeholder="Ex: 170"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.altura ? 'border-red-300' : 'border-gray-300'
+                        errors.altura ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('altura', {
                         required: 'Altura é obrigatória',
@@ -364,7 +364,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.altura && (
-                      <p className="mt-2 text-sm text-red-600">{errors.altura.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.altura.message}</p>
                     )}
                   </div>
                 </div>
@@ -377,7 +377,7 @@ export default function NovoAluno() {
                     <select
                       id="objetivo"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.objetivo ? 'border-red-300' : 'border-gray-300'
+                        errors.objetivo ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('objetivo', { 
                         required: 'Objetivo é obrigatório' 
@@ -392,7 +392,7 @@ export default function NovoAluno() {
                       <option value="Outro">Outro</option>
                     </select>
                     {errors.objetivo && (
-                      <p className="mt-2 text-sm text-red-600">{errors.objetivo.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.objetivo.message}</p>
                     )}
                   </div>
                 </div>
@@ -407,7 +407,7 @@ export default function NovoAluno() {
                       type="text"
                       placeholder="Rua, número, bairro, cidade - UF"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.endereco ? 'border-red-300' : 'border-gray-300'
+                        errors.endereco ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('endereco', { 
                         required: 'Endereço é obrigatório',
@@ -418,7 +418,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.endereco && (
-                      <p className="mt-2 text-sm text-red-600">{errors.endereco.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.endereco.message}</p>
                     )}
                   </div>
                 </div>
@@ -432,12 +432,12 @@ export default function NovoAluno() {
                       id="observacoes"
                       rows="3"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.observacoes ? 'border-red-300' : 'border-gray-300'
+                        errors.observacoes ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('observacoes')}
                     />
                     {errors.observacoes && (
-                      <p className="mt-2 text-sm text-red-600">{errors.observacoes.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.observacoes.message}</p>
                     )}
                   </div>
                 </div>
@@ -460,7 +460,7 @@ export default function NovoAluno() {
                       id="password"
                       type="password"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.password ? 'border-red-300' : 'border-gray-300'
+                        errors.password ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('password', { 
                         required: 'Senha é obrigatória',
@@ -471,7 +471,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.password && (
-                      <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.password.message}</p>
                     )}
                   </div>
                 </div>
@@ -485,7 +485,7 @@ export default function NovoAluno() {
                       id="confirmPassword"
                       type="password"
                       className={`appearance-none block w-full px-3 py-2 border ${
-                        errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                        errors.confirmPassword ? 'border-blue-300' : 'border-gray-300'
                       } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                       {...register('confirmPassword', { 
                         required: 'Confirmação de senha é obrigatória',
@@ -493,7 +493,7 @@ export default function NovoAluno() {
                       })}
                     />
                     {errors.confirmPassword && (
-                      <p className="mt-2 text-sm text-red-600">{errors.confirmPassword.message}</p>
+                      <p className="mt-2 text-sm text-blue-600">{errors.confirmPassword.message}</p>
                     )}
                   </div>
                 </div>

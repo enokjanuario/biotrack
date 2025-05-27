@@ -9,7 +9,7 @@ const ProgressBar = ({ current, target, label, unit = "kg" }) => {
       </div>
       <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
         <div 
-          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300"
+          className="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-300"
           style={{ width: `${percentage}%` }}
         ></div>
       </div>

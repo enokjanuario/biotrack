@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, where, orderBy, startAfter, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, orderBy, startAfter, limit, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import Layout from '../../../components/layout/Layout';
 import Link from 'next/link';
 import { formatDate } from '../../../utils/formatDate';
+import ConfirmDeleteModal from '../../../components/ui/ConfirmDeleteModal';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function AdminAvaliacoes() {
   const { currentUser } = useAuth();
@@ -17,6 +20,9 @@ export default function AdminAvaliacoes() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [avaliacaoToDelete, setAvaliacaoToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -173,6 +179,46 @@ export default function AdminAvaliacoes() {
     return valor ? valor.toString() : '-';
   };
 
+  // Função para abrir modal de confirmação de exclusão
+  const handleDeleteClick = (avaliacao) => {
+    setAvaliacaoToDelete(avaliacao);
+    setShowDeleteModal(true);
+  };
+
+  // Função para fechar modal de exclusão
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setAvaliacaoToDelete(null);
+  };
+
+  // Função para confirmar exclusão
+  const handleDeleteConfirm = async () => {
+    if (!avaliacaoToDelete) return;
+
+    try {
+      setDeleting(true);
+      
+      // Excluir a avaliação do Firestore
+      await deleteDoc(doc(db, 'avaliacoes', avaliacaoToDelete.id));
+      
+      // Remover da lista local
+      setAvaliacoes(prev => prev.filter(av => av.id !== avaliacaoToDelete.id));
+      
+      // Fechar modal
+      setShowDeleteModal(false);
+      setAvaliacaoToDelete(null);
+      
+      // Mostrar mensagem de sucesso
+      toast.success('Avaliação excluída com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao excluir avaliação:', error);
+      toast.error('Erro ao excluir avaliação. Tente novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
@@ -190,15 +236,15 @@ export default function AdminAvaliacoes() {
         </div>
         
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">
+                <p className="text-sm text-blue-700">
                   {error}
                 </p>
               </div>
@@ -328,19 +374,44 @@ export default function AdminAvaliacoes() {
                           {formatMetrica(avaliacao.imc)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-center space-x-2">
                             <Link
                               href={`/admin/avaliacoes/${avaliacao.id}`}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Ver detalhes da avaliação"
                             >
-                              Detalhes
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </Link>
+                            <Link 
+                              href={`/admin/avaliacoes/editar/${avaliacao.id}`}
+                              className="text-yellow-600 hover:text-yellow-900 p-2 hover:bg-yellow-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Editar avaliação"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
                             </Link>
                             <Link 
                               href={`/admin/avaliacoes/nova?alunoId=${avaliacao.alunoId}`}
-                              className="text-green-600 hover:text-green-900"
+                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Registrar nova avaliação para este aluno"
                             >
-                              Nova Avaliação
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
                             </Link>
+                            <button
+                              onClick={() => handleDeleteClick(avaliacao)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full transition-colors inline-flex items-center justify-center"
+                              title="Excluir avaliação"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -375,6 +446,34 @@ export default function AdminAvaliacoes() {
             </>
           )}
         </div>
+
+        {/* Modal de confirmação de exclusão */}
+        <ConfirmDeleteModal
+          isOpen={showDeleteModal}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Excluir Avaliação"
+          message={`Tem certeza que deseja excluir a avaliação de ${avaliacaoToDelete?.alunoNome || 'este aluno'} do dia ${
+            avaliacaoToDelete?.dataAvaliacao?.toDate 
+              ? formatDate(avaliacaoToDelete.dataAvaliacao.toDate()) 
+              : 'N/A'
+          }? Esta ação não pode ser desfeita.`}
+          confirmText="Excluir Avaliação"
+          isLoading={deleting}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
       </div>
     </Layout>
   );

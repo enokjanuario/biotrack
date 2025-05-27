@@ -29,7 +29,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
   ].includes(router.pathname);
 
   return (
-    <header className="bg-blue-600 text-white shadow-md relative z-40">
+    <header className="bg-primary-500 text-white shadow-md relative z-40">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -37,7 +37,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
             {showSidebar && (
               <button
                 onClick={toggleSidebar}
-                className="md:hidden p-2 rounded hover:bg-blue-700 transition-colors"
+                className="md:hidden p-2 rounded hover:bg-primary-600 transition-colors"
                 aria-label="Abrir menu"
               >
                 <Bars3Icon className="h-6 w-6" />
@@ -48,7 +48,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
             {showSidebar && (
               <button
                 onClick={toggleSidebarCollapse}
-                className="hidden md:block p-2 rounded hover:bg-blue-700 transition-colors"
+                className="hidden md:block p-2 rounded hover:bg-primary-600 transition-colors"
                 aria-label={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
               >
                 {isSidebarCollapsed ? (
@@ -64,7 +64,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
               className="flex items-center space-x-2 hover:opacity-90 transition-opacity"
             >
               <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-blue-600 font-bold text-sm">AF</span>
+                <span className="text-primary-500 font-bold text-sm">AF</span>
               </div>
               <span className="font-bold text-xl">Avaliação Física</span>
             </Link>
@@ -74,10 +74,10 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="flex items-center space-x-2 p-2 rounded hover:bg-blue-700 transition-colors"
+                className="flex items-center space-x-2 p-2 rounded hover:bg-primary-600 transition-colors"
                 aria-label="Menu do usuário"
               >
-                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <div className="h-8 w-8 bg-primary-600 rounded-full flex items-center justify-center">
                   <span className="text-white font-medium text-sm">
                     {currentUser.email.charAt(0).toUpperCase()}
                   </span>
@@ -98,7 +98,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
                   
                   <Link 
                     href={userType === 'admin' ? '/admin/perfil' : '/aluno/perfil'}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-primary-600 transition-colors"
                     onClick={() => setShowMenu(false)}
                   >
                     <div className="flex items-center space-x-2">
@@ -114,7 +114,7 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
                       handleLogout();
                       setShowMenu(false);
                     }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-primary-600 transition-colors"
                   >
                     <div className="flex items-center space-x-2">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -130,13 +130,13 @@ export default function Header({ toggleSidebar, toggleSidebarCollapse, isSidebar
             <div className="flex space-x-4 items-center">
               <Link 
                 href="/"
-                className={`px-4 py-2 rounded transition-colors ${router.pathname === '/' ? 'bg-blue-700' : 'hover:bg-blue-700'}`}
+                className={`px-4 py-2 rounded transition-colors ${router.pathname === '/' ? 'bg-primary-600' : 'hover:bg-primary-600'}`}
               >
                 Login
               </Link>
               <Link 
                 href="/cadastro"
-                className={`px-4 py-2 rounded transition-colors ${router.pathname === '/cadastro' ? 'bg-blue-700' : 'hover:bg-blue-700'}`}
+                className={`px-4 py-2 rounded transition-colors ${router.pathname === '/cadastro' ? 'bg-primary-600' : 'hover:bg-primary-600'}`}
               >
                 Cadastro
               </Link>

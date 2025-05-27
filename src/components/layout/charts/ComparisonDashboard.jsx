@@ -64,7 +64,7 @@ const ComparisonDashboard = ({ avaliacoes = [] }) => {
     
     switch (metricType) {
       case 'weight': // Para peso, depende do objetivo
-        return variation > 0 ? 'text-orange-600' : 'text-blue-600';
+        return variation > 0 ? 'text-orange-600' : 'text-red-600';
       case 'fat': // Para gordura, menos é melhor
         return variation > 0 ? 'text-red-600' : 'text-green-600';
       case 'muscle': // Para massa magra, mais é melhor
@@ -271,7 +271,7 @@ const ComparisonDashboard = ({ avaliacoes = [] }) => {
             <div key={metrica.nome} className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <div className="text-blue-600">
+                  <div className="text-primary-600">
                     {metrica.icon}
                   </div>
                 </div>
@@ -342,7 +342,7 @@ const ComparisonDashboard = ({ avaliacoes = [] }) => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Período</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-2xl font-bold text-blue-600">{sortedAvaliacoes.length}</p>
+            <p className="text-2xl font-bold text-primary-600">{sortedAvaliacoes.length}</p>
             <p className="text-sm text-gray-600">Total de Avaliações</p>
           </div>
           <div>

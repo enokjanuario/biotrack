@@ -26,6 +26,7 @@ const TestesChart = ({ data }) => {
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    resizeDelay: 0,
     interaction: {
       mode: 'index',
       intersect: false,
